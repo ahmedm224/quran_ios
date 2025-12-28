@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Bismillah centered -->
+    <item
+        android:gravity="center"
+        android:width="240dp"
+        android:height="80dp">
+        <bitmap
+            android:src="@drawable/bismillah"
+            android:gravity="center" />
+    </item>
+</layer-list>

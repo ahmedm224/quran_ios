@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Alfurqan</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_reciters">Reciters</string>
+    <string name="nav_surahs">Surahs</string>
+    <string name="nav_bookmarks">Bookmarks</string>
+    <string name="nav_downloads">Downloads</string>
+
+    <!-- Player -->
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="next_ayah">Next Ayah</string>
+    <string name="previous_ayah">Previous Ayah</string>
+    <string name="loop_toggle">Loop</string>
+    <string name="speed_control">Speed</string>
+    <string name="sleep_timer">Sleep Timer</string>
+
+    <!-- Seeking -->
+    <string name="seek_forward">Seek Forward</string>
+    <string name="seek_backward">Seek Backward</string>
+    <string name="nudge_forward_small">+250ms</string>
+    <string name="nudge_backward_small">-250ms</string>
+    <string name="nudge_forward_large">+1s</string>
+    <string name="nudge_backward_large">-1s</string>
+
+    <!-- Content descriptions for accessibility -->
+    <string name="cd_play_pause">Play or pause</string>
+    <string name="cd_next">Next ayah</string>
+    <string name="cd_previous">Previous ayah</string>
+    <string name="cd_seek_bar">Seek bar</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_playback">Playback</string>
+    <string name="notification_channel_downloads">Downloads</string>
+
+    <!-- Bookmarks -->
+    <string name="bookmark_position">Bookmark This Position</string>
+    <string name="bookmark_saved">Bookmark Saved!</string>
+    <string name="bookmarks_title">Bookmarks</string>
+    <string name="bookmarks_empty">No bookmarks yet</string>
+    <string name="bookmarks_empty_message">Bookmarks you create will appear here</string>
+    <string name="delete_bookmark">Delete Bookmark</string>
+    <string name="delete_bookmark_confirm">Are you sure you want to delete this bookmark?</string>
+    <string name="delete_all_bookmarks">Delete All Bookmarks</string>
+    <string name="delete_all_bookmarks_confirm">Are you sure you want to delete all %d bookmarks? This action cannot be undone.</string>
+    <string name="delete">Delete</string>
+    <string name="delete_all">Delete All</string>
+    <string name="cancel">Cancel</string>
+    <string name="back">Back</string>
+
+    <!-- Daily Tracker -->
+    <string name="tracker_title">Daily Tracker</string>
+    <string name="tracker_today">Today</string>
+    <string name="tracker_activities">Daily Activities</string>
+    <string name="tracker_quran_progress">Quran Progress</string>
+    <string name="tracker_khatmah_goal">Khatmah Goal</string>
+
+    <!-- Azkar Activities -->
+    <string name="activity_morning_azkar">Morning Azkar</string>
+    <string name="activity_evening_azkar">Evening Azkar</string>
+    <string name="activity_after_prayer_azkar">After Prayer Azkar</string>
+
+    <!-- Progress Labels -->
+    <string name="progress_pages_read">Pages Read</string>
+    <string name="progress_pages_listened">Pages Listened</string>
+    <string name="progress_reading_time">Reading Time</string>
+    <string name="progress_listening_time">Listening Time</string>
+    <string name="progress_last_page">Last Page</string>
+    <string name="progress_last_position">Last Position</string>
+
+    <!-- Khatmah Goals -->
+    <string name="goal_type_monthly">Monthly</string>
+    <string name="goal_type_custom">Custom</string>
+    <string name="goal_create">Create Goal</string>
+    <string name="goal_create_title">Create Khatmah Goal</string>
+    <string name="goal_name">Goal Name</string>
+    <string name="goal_start_date">Start Date</string>
+    <string name="goal_end_date">End Date</string>
+    <string name="goal_type">Goal Type</string>
+    <string name="goal_pages_completed">Pages Completed</string>
+    <string name="goal_pages_remaining">Pages Remaining</string>
+    <string name="goal_days_remaining">Days Remaining</string>
+    <string name="goal_daily_target">Daily Target</string>
+    <string name="goal_progress_percent">Progress: %1$.1f%%</string>
+    <string name="goal_on_track">On Track</string>
+    <string name="goal_behind">Behind</string>
+    <string name="goal_ahead">Ahead</string>
+    <string name="goal_set_active">Set as Active</string>
+    <string name="goal_delete">Delete Goal</string>
+    <string name="goal_delete_confirm">Are you sure you want to delete this goal?</string>
+    <string name="goal_no_active">No active goal</string>
+    <string name="goal_create_monthly">Create monthly goal to finish by end of Hijri month</string>
+
+    <!-- Time Formats -->
+    <string name="time_minutes">%d min</string>
+    <string name="time_hours_minutes">%d h %d min</string>
+
+    <!-- Pages Format -->
+    <string name="pages_count">%d pages</string>
+    <string name="pages_per_day">%1$.1f pages/day</string>
+
+    <!-- Dialog Actions -->
+    <string name="create">Create</string>
+    <string name="save">Save</string>
+    <string name="close">Close</string>
+
+    <!-- Manual Adjustment -->
+    <string name="adjust_pages_listened">Adjust Pages Listened</string>
+    <string name="pages_listened_today">Pages listened today</string>
+    <string name="increment">+</string>
+    <string name="decrement">-</string>
+
+    <!-- Custom Recitation -->
+    <string name="custom_recitation">Custom Recitation</string>
+    <string name="reciter">Reciter</string>
+    <string name="load_preset">Load Preset</string>
+    <string name="select_preset">Select a preset…</string>
+    <string name="start">Start</string>
+    <string name="end_ayah">End Ayah</string>
+    <string name="surah">Surah</string>
+    <string name="ayah">Ayah</string>
+    <string name="repeat_each_ayah">Repeat Each Ayah</string>
+    <string name="repeat_whole_group">Repeat Whole Group</string>
+    <string name="speed">Speed</string>
+    <string name="save_preset">Save Preset</string>
+    <string name="preset_name">Preset Name</string>
+    <string name="unlimited">Unlimited</string>
+    <string name="times">times</string>
+</resources>

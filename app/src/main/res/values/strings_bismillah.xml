@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Bismillah text for splash screen -->
+    <string name="bismillah" translatable="false">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</string>
+</resources>

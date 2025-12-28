@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">الفرقان</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">الرئيسية</string>
+    <string name="nav_reciters">القراء</string>
+    <string name="nav_surahs">السور</string>
+    <string name="nav_bookmarks">الإشارات المرجعية</string>
+    <string name="nav_downloads">التنزيلات</string>
+
+    <!-- Player -->
+    <string name="play">تشغيل</string>
+    <string name="pause">إيقاف مؤقت</string>
+    <string name="next_ayah">الآية التالية</string>
+    <string name="previous_ayah">الآية السابقة</string>
+    <string name="loop_toggle">تكرار</string>
+    <string name="speed_control">السرعة</string>
+    <string name="sleep_timer">مؤقت السكون</string>
+
+    <!-- Seeking -->
+    <string name="seek_forward">التقديم</string>
+    <string name="seek_backward">الترجيع</string>
+    <string name="nudge_forward_small">+٢٥٠ ميلي ثانية</string>
+    <string name="nudge_backward_small">-٢٥٠ ميلي ثانية</string>
+    <string name="nudge_forward_large">+١ ثانية</string>
+    <string name="nudge_backward_large">-١ ثانية</string>
+
+    <!-- Content descriptions for accessibility -->
+    <string name="cd_play_pause">تشغيل أو إيقاف مؤقت</string>
+    <string name="cd_next">الآية التالية</string>
+    <string name="cd_previous">الآية السابقة</string>
+    <string name="cd_seek_bar">شريط البحث</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_playback">التشغيل</string>
+    <string name="notification_channel_downloads">التنزيلات</string>
+
+    <!-- Bookmarks -->
+    <string name="bookmark_position">حفظ هذا الموضع</string>
+    <string name="bookmark_saved">تم الحفظ!</string>
+    <string name="bookmarks_title">الإشارات المرجعية</string>
+    <string name="bookmarks_empty">لا توجد إشارات مرجعية بعد</string>
+    <string name="bookmarks_empty_message">ستظهر الإشارات المرجعية التي تنشئها هنا</string>
+    <string name="delete_bookmark">حذف الإشارة المرجعية</string>
+    <string name="delete_bookmark_confirm">هل أنت متأكد من حذف هذه الإشارة المرجعية؟</string>
+    <string name="delete_all_bookmarks">حذف جميع الإشارات المرجعية</string>
+    <string name="delete_all_bookmarks_confirm">هل أنت متأكد من حذف جميع الإشارات المرجعية (%d)؟ لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="delete">حذف</string>
+    <string name="delete_all">حذف الكل</string>
+    <string name="cancel">إلغاء</string>
+    <string name="back">رجوع</string>
+
+    <!-- Daily Tracker -->
+    <string name="tracker_title">المتابعة اليومية</string>
+    <string name="tracker_today">اليوم</string>
+    <string name="tracker_activities">الأنشطة اليومية</string>
+    <string name="tracker_quran_progress">تقدم القرآن</string>
+    <string name="tracker_khatmah_goal">هدف الختمة</string>
+
+    <!-- Azkar Activities -->
+    <string name="activity_morning_azkar">أذكار الصباح</string>
+    <string name="activity_evening_azkar">أذكار المساء</string>
+    <string name="activity_after_prayer_azkar">أذكار بعد الصلاة</string>
+
+    <!-- Progress Labels -->
+    <string name="progress_pages_read">الصفحات المقروءة</string>
+    <string name="progress_pages_listened">الصفحات المسموعة</string>
+    <string name="progress_reading_time">وقت القراءة</string>
+    <string name="progress_listening_time">وقت الاستماع</string>
+    <string name="progress_last_page">آخر صفحة</string>
+    <string name="progress_last_position">آخر موضع</string>
+
+    <!-- Khatmah Goals -->
+    <string name="goal_type_monthly">شهري</string>
+    <string name="goal_type_custom">مخصص</string>
+    <string name="goal_create">إنشاء هدف</string>
+    <string name="goal_create_title">إنشاء هدف ختمة</string>
+    <string name="goal_name">اسم الهدف</string>
+    <string name="goal_start_date">تاريخ البدء</string>
+    <string name="goal_end_date">تاريخ الانتهاء</string>
+    <string name="goal_type">نوع الهدف</string>
+    <string name="goal_pages_completed">الصفحات المكتملة</string>
+    <string name="goal_pages_remaining">الصفحات المتبقية</string>
+    <string name="goal_days_remaining">الأيام المتبقية</string>
+    <string name="goal_daily_target">الهدف اليومي</string>
+    <string name="goal_progress_percent">التقدم: %1$.1f%%</string>
+    <string name="goal_on_track">على المسار الصحيح</string>
+    <string name="goal_behind">متأخر</string>
+    <string name="goal_ahead">متقدم</string>
+    <string name="goal_set_active">تعيين كهدف نشط</string>
+    <string name="goal_delete">حذف الهدف</string>
+    <string name="goal_delete_confirm">هل أنت متأكد من حذف هذا الهدف؟</string>
+    <string name="goal_no_active">لا يوجد هدف نشط</string>
+    <string name="goal_create_monthly">إنشاء هدف شهري للانتهاء بنهاية الشهر الهجري</string>
+
+    <!-- Time Formats -->
+    <string name="time_minutes">%d دقيقة</string>
+    <string name="time_hours_minutes">%d ساعة %d دقيقة</string>
+
+    <!-- Pages Format -->
+    <string name="pages_count">%d صفحة</string>
+    <string name="pages_per_day">%1$.1f صفحة/يوم</string>
+
+    <!-- Dialog Actions -->
+    <string name="create">إنشاء</string>
+    <string name="save">حفظ</string>
+    <string name="close">إغلاق</string>
+
+    <!-- Manual Adjustment -->
+    <string name="adjust_pages_listened">تعديل الصفحات المسموعة</string>
+    <string name="pages_listened_today">الصفحات المسموعة اليوم</string>
+    <string name="increment">+</string>
+    <string name="decrement">-</string>
+
+    <!-- Custom Recitation -->
+    <string name="custom_recitation">تلاوة مخصصة</string>
+    <string name="reciter">القارئ</string>
+    <string name="load_preset">تحميل إعداد محفوظ</string>
+    <string name="select_preset">اختر إعدادًا…</string>
+    <string name="start">بداية</string>
+    <string name="end_ayah">نهاية الآية</string>
+    <string name="surah">السورة</string>
+    <string name="ayah">الآية</string>
+    <string name="repeat_each_ayah">تكرار كل آية</string>
+    <string name="repeat_whole_group">تكرار المجموعة كاملة</string>
+    <string name="speed">السرعة</string>
+    <string name="save_preset">حفظ الإعداد</string>
+    <string name="preset_name">اسم الإعداد</string>
+    <string name="unlimited">غير محدود</string>
+    <string name="times">مرات</string>
+</resources>

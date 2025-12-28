@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+option java_package = "com.quranmedia.player.data.datastore";
+option java_multiple_files = true;
+
+message UserSettings {
+  // Playback settings
+  float playback_speed = 1;
+  bool pitch_lock_enabled = 2;
+
+  // Seeking settings
+  int32 small_seek_increment_ms = 3;  // Default: 250ms
+  int32 large_seek_increment_ms = 4;  // Default: 1000ms
+  bool snap_to_ayah_enabled = 5;
+
+  // Audio settings
+  bool gapless_playback = 6;
+  int32 volume_level = 7;
+  bool normalize_audio = 8;
+
+  // Loop settings
+  bool auto_loop_enabled = 9;
+  int32 loop_count = 10;  // -1 for infinite
+
+  // UI settings
+  bool waveform_enabled = 11;
+  bool show_translation = 12;
+  string translation_language = 13;
+  bool dark_mode = 14;
+  bool dynamic_colors = 15;
+
+  // Download settings
+  bool wifi_only_downloads = 16;
+  bool auto_delete_after_playback = 17;
+  int32 preferred_bitrate = 18;
+  string preferred_audio_format = 19;
+
+  // Notification settings
+  bool show_notification = 20;
+  bool show_playback_position = 21;
+
+  // Auto settings
+  bool android_auto_enabled = 22;
+  int32 recent_bookmarks_count = 23;  // For Android Auto
+
+  // Last playback state
+  string last_reciter_id = 24;
+  int32 last_surah_number = 25;
+  int64 last_position_ms = 26;
+  bool resume_on_startup = 27;
+
+  // Accessibility
+  bool large_text = 28;
+  bool high_contrast = 29;
+  int32 haptic_feedback_intensity = 30;  // 0-100
+
+  // Prayer notification settings
+  bool prayer_notification_enabled = 31;
+  int32 prayer_notification_minutes_before = 32;  // 0, 5, 10, 15, 30 minutes before
+  bool notify_fajr = 33;
+  bool notify_dhuhr = 34;
+  bool notify_asr = 35;
+  bool notify_maghrib = 36;
+  bool notify_isha = 37;
+  bool prayer_notification_sound = 38;
+  bool prayer_notification_vibrate = 39;
+}
