@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.quranmedia.player.BuildConfig
 import com.quranmedia.player.data.location.LocationHelper
 import com.quranmedia.player.data.repository.AppLanguage
+import com.quranmedia.player.data.repository.PrayerNotificationMode
 import com.quranmedia.player.data.repository.SettingsRepository
 import com.quranmedia.player.domain.repository.PrayerTimesRepository
 import com.quranmedia.player.domain.util.Resource
@@ -28,6 +29,7 @@ data class WhatsNewUiState(
     val locationPermissionGranted: Boolean = false,
     val notificationPermissionGranted: Boolean = false,
     val selectedPrayerMethod: Int = 4, // Default: Umm Al-Qura (Makkah)
+    val selectedPrayerNotificationMode: PrayerNotificationMode = PrayerNotificationMode.SILENT
 )
 
 @HiltViewModel
@@ -63,10 +65,6 @@ class WhatsNewViewModel @Inject constructor(
     private fun checkLocationPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
             context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED ||
-        ContextCompat.checkSelfPermission(
-            context,
             Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
     }
@@ -84,7 +82,7 @@ class WhatsNewViewModel @Inject constructor(
 
     fun onLocationPermissionResult(granted: Boolean) {
         _uiState.value = _uiState.value.copy(locationPermissionGranted = granted)
-        Timber.d("Location permission granted: $granted")
+        Timber.d("Approximate location permission granted: $granted")
 
         // If permission granted, detect and save location
         if (granted) {
@@ -127,8 +125,28 @@ class WhatsNewViewModel @Inject constructor(
         }
     }
 
+    fun onPrayerNotificationModeSelected(mode: PrayerNotificationMode) {
+        _uiState.value = _uiState.value.copy(selectedPrayerNotificationMode = mode)
+        Timber.d("Prayer notification mode selected: $mode")
+    }
+
     fun markAsComplete() {
         viewModelScope.launch {
+            // Apply selected prayer notification mode to all prayers
+            val selectedMode = _uiState.value.selectedPrayerNotificationMode
+            settingsRepository.setFajrNotificationMode(selectedMode)
+            settingsRepository.setDhuhrNotificationMode(selectedMode)
+            settingsRepository.setAsrNotificationMode(selectedMode)
+            settingsRepository.setMaghribNotificationMode(selectedMode)
+            settingsRepository.setIshaNotificationMode(selectedMode)
+
+            // Enable prayer notifications if mode is not SILENT
+            if (selectedMode != PrayerNotificationMode.SILENT) {
+                settingsRepository.setPrayerNotificationEnabled(true)
+            }
+
+            Timber.d("Applied $selectedMode to all prayers")
+
             settingsRepository.setLastSeenVersionCode(BuildConfig.VERSION_CODE)
             settingsRepository.setCompletedInitialSetup(true)
             Timber.d("What's New marked as complete for version ${BuildConfig.VERSION_CODE}")

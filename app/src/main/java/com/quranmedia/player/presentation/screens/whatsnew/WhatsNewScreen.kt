@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.quranmedia.player.BuildConfig
 import com.quranmedia.player.data.repository.AppLanguage
+import com.quranmedia.player.data.repository.PrayerNotificationMode
 import com.quranmedia.player.domain.model.CalculationMethod
 import com.quranmedia.player.presentation.screens.reader.components.scheherazadeFont
 import com.quranmedia.player.presentation.util.layoutDirection
@@ -48,10 +49,8 @@ fun WhatsNewScreen(
 
     // Permission launchers
     val locationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false ||
-                     permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
         viewModel.onLocationPermissionResult(granted)
     }
 
@@ -101,10 +100,7 @@ fun WhatsNewScreen(
                                 else "Get accurate prayer times for your location",
                             onRequestPermission = {
                                 locationPermissionLauncher.launch(
-                                    arrayOf(
-                                        Manifest.permission.ACCESS_FINE_LOCATION,
-                                        Manifest.permission.ACCESS_COARSE_LOCATION
-                                    )
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
                                 )
                             }
                         )
@@ -136,6 +132,15 @@ fun WhatsNewScreen(
                         language = language,
                         selectedMethodId = uiState.selectedPrayerMethod,
                         onMethodSelected = viewModel::onPrayerMethodSelected
+                    )
+                }
+
+                // Prayer Notification Mode Section
+                item {
+                    PrayerNotificationModeSection(
+                        language = language,
+                        selectedMode = uiState.selectedPrayerNotificationMode,
+                        onModeSelected = viewModel::onPrayerNotificationModeSelected
                     )
                 }
 
@@ -253,7 +258,7 @@ private fun FeatureHighlightsSection(
                 color = islamicGreen
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Version-specific features
             getFeaturesList(versionName, language).forEach { feature ->
@@ -263,7 +268,7 @@ private fun FeatureHighlightsSection(
                     description = feature.description,
                     language = language
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
@@ -278,12 +283,12 @@ private fun FeatureItem(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Top
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(36.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(lightGreen),
             contentAlignment = Alignment.Center
@@ -292,24 +297,25 @@ private fun FeatureItem(
                 imageVector = icon,
                 contentDescription = null,
                 tint = islamicGreen,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(20.dp)
             )
         }
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                fontSize = 16.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
                 color = darkGreen
             )
             Text(
                 text = description,
-                fontSize = 14.sp,
+                fontSize = 12.sp,
                 fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
                 color = Color.Gray,
-                modifier = Modifier.padding(top = 4.dp)
+                lineHeight = 16.sp,
+                modifier = Modifier.padding(top = 2.dp)
             )
         }
     }
@@ -503,6 +509,135 @@ private fun PrayerMethodSection(
 }
 
 @Composable
+private fun PrayerNotificationModeSection(
+    language: AppLanguage,
+    selectedMode: PrayerNotificationMode,
+    onModeSelected: (PrayerNotificationMode) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(lightGreen),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = null,
+                        tint = islamicGreen,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (language == AppLanguage.ARABIC)
+                            "تنبيهات الصلاة"
+                            else "Prayer Alerts",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                        color = darkGreen
+                    )
+                    Text(
+                        text = if (language == AppLanguage.ARABIC)
+                            "اختر كيف تريد التنبيه لكل الصلوات"
+                            else "Choose how you want to be notified for all prayers",
+                        fontSize = 14.sp,
+                        fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Mode selection chips
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                PrayerNotificationMode.entries.forEach { mode ->
+                    val isSelected = mode == selectedMode
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { onModeSelected(mode) },
+                        label = {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = when (mode) {
+                                        PrayerNotificationMode.ATHAN -> Icons.Default.VolumeUp
+                                        PrayerNotificationMode.NOTIFICATION -> Icons.Default.NotificationsActive
+                                        PrayerNotificationMode.SILENT -> Icons.Default.NotificationsOff
+                                    },
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = if (isSelected) Color.White else islamicGreen
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = if (language == AppLanguage.ARABIC) mode.arabicLabel else mode.englishLabel,
+                                    fontSize = 12.sp,
+                                    fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = islamicGreen,
+                            selectedLabelColor = Color.White,
+                            containerColor = Color.Gray.copy(alpha = 0.1f)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            // Description based on selected mode
+            if (selectedMode != PrayerNotificationMode.SILENT) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = when (selectedMode) {
+                        PrayerNotificationMode.ATHAN -> if (language == AppLanguage.ARABIC)
+                            "✓ سيتم تشغيل الأذان بصوت المؤذن في أوقات الصلاة"
+                        else
+                            "✓ Full Athan will play at prayer times"
+                        PrayerNotificationMode.NOTIFICATION -> if (language == AppLanguage.ARABIC)
+                            "✓ ستظهر إشعارات بسيطة في أوقات الصلاة"
+                        else
+                            "✓ Simple notifications will appear at prayer times"
+                        else -> ""
+                    },
+                    fontSize = 12.sp,
+                    fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                    color = islamicGreen,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun WhatsNewActions(
     language: AppLanguage,
     onSkip: () -> Unit,
@@ -564,17 +699,17 @@ private fun getFeaturesList(versionName: String, language: AppLanguage): List<Fe
             Feature(
                 icon = Icons.Default.Repeat,
                 title = "التلاوة المتكررة",
-                description = "كرر الآيات والنطاقات المخصصة لحفظ أفضل"
+                description = "كرر الآيات لحفظ أفضل"
             ),
             Feature(
                 icon = Icons.Default.Palette,
                 title = "مصحف التجويد",
-                description = "اعرض القرآن بألوان أحكام التجويد"
+                description = "604 صفحة بألوان أحكام التجويد"
             ),
             Feature(
                 icon = Icons.Default.Notifications,
-                title = "نظام الأذان",
-                description = "استمع إلى الأذان في أوقات الصلاة المختارة"
+                title = "تنبيهات الصلاة",
+                description = "اختر: صامت، إشعار، أو أذان كامل مع مؤذن واحد"
             ),
             Feature(
                 icon = Icons.Default.Edit,
@@ -584,35 +719,35 @@ private fun getFeaturesList(versionName: String, language: AppLanguage): List<Fe
             Feature(
                 icon = Icons.Default.CalendarMonth,
                 title = "متتبع القراءة",
-                description = "تتبع تقدمك اليومي والأسبوعي في قراءة القرآن"
+                description = "تتبع تقدمك وأهداف الختمة"
             )
         )
     } else {
         listOf(
             Feature(
                 icon = Icons.Default.Repeat,
-                title = "Repeated Recitation",
-                description = "Repeat ayahs and custom ranges for better memorization"
+                title = "Repeat Mode",
+                description = "Repeat ayahs for better memorization"
             ),
             Feature(
                 icon = Icons.Default.Palette,
                 title = "Tajweed Mushaf",
-                description = "Display Quran with Tajweed color-coded rules"
+                description = "604 pages with Tajweed color-coded rules"
             ),
             Feature(
                 icon = Icons.Default.Notifications,
-                title = "Athan System",
-                description = "Listen to Athan at selected prayer times"
+                title = "Prayer Alerts",
+                description = "Choose: Silent, Notification, or full Athan with one Muazzin"
             ),
             Feature(
                 icon = Icons.Default.Edit,
                 title = "Athkar",
-                description = "Morning, evening, and after-prayer remembrances"
+                description = "Morning, evening, and post-prayer"
             ),
             Feature(
                 icon = Icons.Default.CalendarMonth,
                 title = "Reading Tracker",
-                description = "Track your daily and weekly Quran reading progress"
+                description = "Track progress and Khatmah goals"
             )
         )
     }

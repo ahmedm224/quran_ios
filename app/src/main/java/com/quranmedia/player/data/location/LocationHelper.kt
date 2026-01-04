@@ -28,17 +28,13 @@ class LocationHelper @Inject constructor(
         LocationServices.getFusedLocationProviderClient(context)
 
     /**
-     * Check if app has location permission
+     * Check if app has location permission (approximate location is sufficient for prayer times)
      */
     fun hasLocationPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
             context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     /**

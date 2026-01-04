@@ -144,7 +144,7 @@ May Allah accept this effort and make it beneficial for the Ummah. Ameen.
 
 ---
 
-**Version:** 2.0.0 (Build 16)
+**Version:** 2.0.2 (Build 18)
 **Developer:** cloudlinqed.com
 **Category:** Music & Audio / Books & Reference
 **Content Rating:** Everyone
@@ -161,28 +161,26 @@ May Allah accept this effort and make it beneficial for the Ummah. Ameen.
 ## Promo Text (170 characters max)
 Complete Quran app with 604-page reader, Tajweed colors, 50+ reciters, prayer times, athan, athkar, daily tracking & more. Free forever. No ads. Privacy focused.
 
-## What's New (500 characters max - for Version 2.0 launch)
-🎉 MAJOR UPDATE - Version 2.0.0:
+## What's New (500 characters max - for Version 2.0.2)
+🔒 Version 2.0.2 - Privacy & Compliance Update:
 
-✨ NEW FEATURES:
-• Full 604-page Quran reading mode
-• Tajweed color-coded theme
-• Prayer times (14 calculation methods)
-• Athan with flip-to-silence
-• Athkar (Islamic remembrances)
-• Daily tracking & Khatmah goals
-• Reading page bookmarks
-• 7 beautiful reading themes
-• Enhanced repeated recitation
-• Full-text Quran search
+✨ PRIVACY ENHANCEMENTS:
+• Updated Privacy Policy with complete transparency
+• Clarified: Daily Tracker is for YOUR progress, not analytics
+• Location data only for prayer times (optional & never tracked)
+• All data stored locally on your device
 
 🔧 IMPROVEMENTS:
-• Faster performance
-• Better Arabic typography
-• Improved Android Auto
-• Bug fixes
+• Better privacy controls and explanations
+• Enhanced data safety compliance
+• Approximate location only (city-level, not GPS)
+• Removed unnecessary permissions
 
-Alhamdulillah for this milestone!
+📖 TRANSPARENCY:
+• Clear documentation of all APIs used
+• HTTPS encryption for all network traffic
+
+May Allah accept this effort. جزاكم الله خيرا
 
 ## Keywords for ASO (App Store Optimization)
 Quran, Quran app, Quran reader, القرآن الكريم, Quran audio, Quran recitation, Mushaf, Tajweed, Islamic app, Muslim app, Quran offline, Prayer times, Salat times, Athan, Adhan, Azan, أذان, Athkar, أذكار, Quran mp3, Quran player, Holy Quran, Al Quran, Quranic recitation, Quran memorization, Hifz, حفظ, Abdul Basit, Mishary Alafasy, المعيقلي, الحصري, Quran Android Auto, Quran download, Quran with Tajweed, Islamic audio, Muslim prayer, Prayer time app, Ramadan app, Islamic calendar, Hijri calendar, Quran search, Quran تفسير, Islamic study, Quran tracker, Khatmah, ختمة القرآن

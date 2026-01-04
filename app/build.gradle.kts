@@ -15,8 +15,8 @@ android {
         applicationId = "com.quranmedia.player"
         minSdk = 27
         targetSdk = 35
-        versionCode = 16
-        versionName = "2.0.0"
+        versionCode = 18
+        versionName = "2.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

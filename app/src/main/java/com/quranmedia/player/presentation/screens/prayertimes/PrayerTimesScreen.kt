@@ -129,13 +129,11 @@ fun PrayerTimesScreen(
     var showLocationDialog by remember { mutableStateOf(false) }
     var cityInput by remember { mutableStateOf("") }
 
-    // Location permission launcher
+    // Location permission launcher (approximate location is sufficient for prayer times)
     val locationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-        val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
-        if (fineGranted || coarseGranted) {
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
             viewModel.onLocationPermissionGranted()
         }
     }
@@ -210,10 +208,7 @@ fun PrayerTimesScreen(
                                 viewModel.detectLocation()
                             } else {
                                 locationPermissionLauncher.launch(
-                                    arrayOf(
-                                        Manifest.permission.ACCESS_FINE_LOCATION,
-                                        Manifest.permission.ACCESS_COARSE_LOCATION
-                                    )
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
                                 )
                             }
                         },
