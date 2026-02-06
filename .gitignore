@@ -16,10 +16,9 @@ local.properties
 captures/
 .externalNativeBuild
 .cxx
-*.apk
 output.json
 
-# Android
+# Android build outputs
 *.ap_
 *.aab
 *.dex
@@ -28,8 +27,15 @@ bin/
 gen/
 out/
 
+# Release APKs (build in Android Studio, don't commit)
+*.apk
+**/release/*.apk
+**/debug/*.apk
+
 # Signing files
 .signing/
+*.jks
+*.keystore
 
 # User-specific configurations
 .idea/caches/
@@ -52,18 +58,71 @@ out/
 
 # OS-specific files
 Thumbs.db
+.DS_Store
+Desktop.ini
 
-# Legacy backup
+# Temporary files
 *.bak
 *.tmp
 *.temp
+*.swp
+*~
 
-# Build logs and temporary files
+# Build logs
 build_log.txt
 log.txt
 nul
 
 # Audio files (too large for git)
 *.mp3
+*.wav
+*.m4a
+*.ogg
 quran_mp3/
 quran_data/
+
+# Python virtual environments
+venv/
+venv_*/
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+pip-log.txt
+
+# Server directory
+server/
+
+# Keys and secrets
+keys.txt
+*.pem
+*.key
+secrets.json
+
+# Claude Code temp files
+tmpclaude-*
+
+# Screenshots and recordings
+*.png
+*.jpg
+*.jpeg
+Screenshot_*.png
+Recording*.wav
+
+# Dev documentation (keep in local only)
+*Implementation.md
+*IMPLEMENTATION.md
+*FEATURE.md
+*-guide.md
+
+# Shortcuts
+*.lnk
+
+# Quran reader module (separate project)
+quran-reader-module/
+
+# Misc dev files
+*.json.bak
+word_by_word_english.json
+quran_mufradat.json
