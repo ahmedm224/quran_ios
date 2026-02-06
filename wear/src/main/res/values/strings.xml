@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Alfurqan</string>
+    <string name="athkar_title">Athkar</string>
+    <string name="morning_athkar">Morning Athkar</string>
+    <string name="evening_athkar">Evening Athkar</string>
+    <string name="tap_to_count">Tap or pinch to count</string>
+    <string name="completed">Completed</string>
+    <string name="remaining">%d remaining</string>
+
+    <!-- Tiles -->
+    <string name="tile_prayer_times_full">Prayer Times</string>
+    <string name="tile_prayer_countdown">Next Prayer</string>
+</resources>

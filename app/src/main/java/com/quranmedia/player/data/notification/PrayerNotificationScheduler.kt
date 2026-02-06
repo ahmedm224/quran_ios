@@ -33,10 +33,42 @@ class PrayerNotificationScheduler @Inject constructor(
     }
 
     /**
+     * Check if exact alarms can be scheduled (Android 12+ requires permission)
+     */
+    fun canScheduleExactAlarms(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            alarmManager.canScheduleExactAlarms()
+        } else {
+            true // Pre-Android 12 doesn't need permission
+        }
+    }
+
+    /**
+     * Check and log alarm permission status
+     */
+    fun logAlarmPermissionStatus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val canSchedule = alarmManager.canScheduleExactAlarms()
+            Timber.d("=== ALARM PERMISSION STATUS ===")
+            Timber.d("Android version: ${Build.VERSION.SDK_INT}")
+            Timber.d("canScheduleExactAlarms: $canSchedule")
+            if (!canSchedule) {
+                Timber.e("EXACT ALARM PERMISSION NOT GRANTED - Alarms may be unreliable!")
+            }
+        } else {
+            Timber.d("=== ALARM PERMISSION STATUS ===")
+            Timber.d("Android version: ${Build.VERSION.SDK_INT} (pre-S, no permission needed)")
+        }
+    }
+
+    /**
      * Schedule notifications for all enabled prayer times.
      * Should be called when prayer times are fetched or settings change.
      */
     fun schedulePrayerNotifications(prayerTimes: PrayerTimes) {
+        // Log permission status
+        logAlarmPermissionStatus()
+
         val settings = settingsRepository.getCurrentSettings()
 
         if (!settings.prayerNotificationEnabled) {
@@ -121,16 +153,27 @@ class PrayerNotificationScheduler @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Schedule exact alarm that works in Doze mode
+        // Schedule alarm - use setAlarmClock for better foreground service exemptions
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                // Android 12+ requires checking if exact alarms are allowed
+                // Android 12+ - use setAlarmClock for better exemptions
+                // This allows starting foreground services from the alarm receiver
                 if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerTimeMs,
-                        pendingIntent
+                    // Create show intent for when user taps the alarm icon
+                    val showIntent = Intent(context, PrayerAlarmReceiver::class.java).apply {
+                        action = PrayerAlarmReceiver.ACTION_PRAYER_ALARM
+                        putExtra(PrayerAlarmReceiver.EXTRA_PRAYER_TYPE, prayerType.name)
+                    }
+                    val showPendingIntent = PendingIntent.getBroadcast(
+                        context,
+                        REQUEST_CODE_BASE + prayerType.ordinal + 100,
+                        showIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
+
+                    val alarmInfo = AlarmManager.AlarmClockInfo(triggerTimeMs, showPendingIntent)
+                    alarmManager.setAlarmClock(alarmInfo, pendingIntent)
+                    Timber.d("Scheduled ${prayerType.name} using setAlarmClock (Android 12+)")
                 } else {
                     // Fallback to inexact alarm if permission not granted
                     Timber.w("Exact alarm permission not granted, using inexact alarm")
@@ -140,9 +183,25 @@ class PrayerNotificationScheduler @Inject constructor(
                         pendingIntent
                     )
                 }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                // Android 5-11 - setAlarmClock also works here
+                val showIntent = Intent(context, PrayerAlarmReceiver::class.java).apply {
+                    action = PrayerAlarmReceiver.ACTION_PRAYER_ALARM
+                    putExtra(PrayerAlarmReceiver.EXTRA_PRAYER_TYPE, prayerType.name)
+                }
+                val showPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    REQUEST_CODE_BASE + prayerType.ordinal + 100,
+                    showIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                val alarmInfo = AlarmManager.AlarmClockInfo(triggerTimeMs, showPendingIntent)
+                alarmManager.setAlarmClock(alarmInfo, pendingIntent)
+                Timber.d("Scheduled ${prayerType.name} using setAlarmClock")
             } else {
-                // Android 6-11
-                alarmManager.setExactAndAllowWhileIdle(
+                // Older Android versions
+                alarmManager.setExact(
                     AlarmManager.RTC_WAKEUP,
                     triggerTimeMs,
                     pendingIntent
@@ -150,9 +209,9 @@ class PrayerNotificationScheduler @Inject constructor(
             }
 
             val delayMinutes = (triggerTimeMs - System.currentTimeMillis()) / 1000 / 60
-            Timber.d("Scheduled ${prayerType.name} exact alarm in $delayMinutes minutes (at $notificationDateTime)")
+            Timber.d("Scheduled ${prayerType.name} alarm in $delayMinutes minutes (at $notificationDateTime)")
         } catch (e: SecurityException) {
-            Timber.e(e, "Failed to schedule exact alarm for ${prayerType.name}")
+            Timber.e(e, "Failed to schedule alarm for ${prayerType.name}")
         }
     }
 
@@ -194,5 +253,73 @@ class PrayerNotificationScheduler @Inject constructor(
             cancelNotification(prayerType)
         }
         Timber.d("Cancelled all prayer alarms")
+    }
+
+    /**
+     * DEBUG: Schedule a test athan at a specific time chosen by user.
+     * Uses FAJR prayer type for the test.
+     */
+    fun scheduleTestAthanAt(hour: Int, minute: Int, athanId: String, maxVolume: Boolean) {
+        val today = LocalDate.now()
+        var testTime = LocalDateTime.of(today, LocalTime.of(hour, minute))
+
+        // If time has passed today, schedule for tomorrow
+        if (testTime.isBefore(LocalDateTime.now())) {
+            testTime = testTime.plusDays(1)
+        }
+
+        val triggerTimeMs = testTime
+            .atZone(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+
+        // Use FAJR for test (request code 3000)
+        val intent = Intent(context, PrayerAlarmReceiver::class.java).apply {
+            action = PrayerAlarmReceiver.ACTION_PRAYER_ALARM
+            putExtra(PrayerAlarmReceiver.EXTRA_PRAYER_TYPE, PrayerType.FAJR.name)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            REQUEST_CODE_BASE + PrayerType.FAJR.ordinal,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (alarmManager.canScheduleExactAlarms()) {
+                    val showIntent = Intent(context, PrayerAlarmReceiver::class.java).apply {
+                        action = PrayerAlarmReceiver.ACTION_PRAYER_ALARM
+                        putExtra(PrayerAlarmReceiver.EXTRA_PRAYER_TYPE, PrayerType.FAJR.name)
+                    }
+                    val showPendingIntent = PendingIntent.getBroadcast(
+                        context,
+                        REQUEST_CODE_BASE + PrayerType.FAJR.ordinal + 100,
+                        showIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    val alarmInfo = AlarmManager.AlarmClockInfo(triggerTimeMs, showPendingIntent)
+                    alarmManager.setAlarmClock(alarmInfo, pendingIntent)
+                }
+            } else {
+                val showIntent = Intent(context, PrayerAlarmReceiver::class.java).apply {
+                    action = PrayerAlarmReceiver.ACTION_PRAYER_ALARM
+                    putExtra(PrayerAlarmReceiver.EXTRA_PRAYER_TYPE, PrayerType.FAJR.name)
+                }
+                val showPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    REQUEST_CODE_BASE + PrayerType.FAJR.ordinal + 100,
+                    showIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                val alarmInfo = AlarmManager.AlarmClockInfo(triggerTimeMs, showPendingIntent)
+                alarmManager.setAlarmClock(alarmInfo, pendingIntent)
+            }
+
+            Timber.d("=== TEST ATHAN SCHEDULED FOR %02d:%02d (in ${(triggerTimeMs - System.currentTimeMillis()) / 1000} seconds) ===", hour, minute)
+        } catch (e: SecurityException) {
+            Timber.e(e, "Failed to schedule test athan")
+        }
     }
 }

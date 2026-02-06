@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,16 +28,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.quranmedia.player.BuildConfig
 import com.quranmedia.player.data.repository.AppLanguage
 import com.quranmedia.player.data.repository.PrayerNotificationMode
+import com.quranmedia.player.data.source.FontDownloadState
 import com.quranmedia.player.domain.model.CalculationMethod
 import com.quranmedia.player.presentation.screens.reader.components.scheherazadeFont
+import com.quranmedia.player.presentation.screens.reader.components.islamicGreen
+import com.quranmedia.player.presentation.screens.reader.components.darkGreen
+import com.quranmedia.player.presentation.screens.reader.components.goldAccent
+import com.quranmedia.player.presentation.screens.reader.components.creamBackground
 import com.quranmedia.player.presentation.util.layoutDirection
 
-// Theme colors
-private val islamicGreen = Color(0xFF2E7D32)
+// WhatsNew-specific light green for backgrounds (lighter than shared lightGreen)
 private val lightGreen = Color(0xFFE8F5E9)
-private val darkGreen = Color(0xFF1B5E20)
-private val goldAccent = Color(0xFFD4AF37)
-private val creamBackground = Color(0xFFFAF8F3)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +48,14 @@ fun WhatsNewScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val language = uiState.language
+
+    // Font download progress
+    val v2Progress by viewModel.v2DownloadProgress.collectAsState()
+    val v4Progress by viewModel.v4DownloadProgress.collectAsState()
+
+    // Make downloaded state reactive - updates when progress state changes
+    val isV2Downloaded = v2Progress.state == FontDownloadState.DOWNLOADED || viewModel.isV2Downloaded()
+    val isV4Downloaded = v4Progress.state == FontDownloadState.DOWNLOADED || viewModel.isV4Downloaded()
 
     // Permission launchers
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -72,6 +82,14 @@ fun WhatsNewScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Language Toggle
+                item {
+                    LanguageToggle(
+                        language = language,
+                        onToggle = { viewModel.toggleLanguage() }
+                    )
+                }
+
                 // Header Section
                 item {
                     WhatsNewHeader(
@@ -85,6 +103,19 @@ fun WhatsNewScreen(
                     FeatureHighlightsSection(
                         language = language,
                         versionName = BuildConfig.VERSION_NAME
+                    )
+                }
+
+                // Mushaf Font Download Section
+                item {
+                    MushafFontDownloadSection(
+                        language = language,
+                        isV2Downloaded = isV2Downloaded,
+                        isV4Downloaded = isV4Downloaded,
+                        v2Progress = v2Progress,
+                        v4Progress = v4Progress,
+                        onDownloadV2 = { viewModel.downloadV2Fonts() },
+                        onDownloadV4 = { viewModel.downloadV4Fonts() }
                     )
                 }
 
@@ -697,14 +728,19 @@ private fun getFeaturesList(versionName: String, language: AppLanguage): List<Fe
     return if (language == AppLanguage.ARABIC) {
         listOf(
             Feature(
-                icon = Icons.Default.Repeat,
-                title = "التلاوة المتكررة",
-                description = "كرر الآيات لحفظ أفضل"
+                icon = Icons.Default.MenuBook,
+                title = "خطوط المصحف الشريف",
+                description = "604 خط مخصص لكل صفحة للحصول على عرض مثالي للمصحف"
             ),
             Feature(
                 icon = Icons.Default.Palette,
                 title = "مصحف التجويد",
                 description = "604 صفحة بألوان أحكام التجويد"
+            ),
+            Feature(
+                icon = Icons.Default.Repeat,
+                title = "التلاوة المتكررة",
+                description = "كرر الآيات لحفظ أفضل"
             ),
             Feature(
                 icon = Icons.Default.Notifications,
@@ -720,19 +756,34 @@ private fun getFeaturesList(versionName: String, language: AppLanguage): List<Fe
                 icon = Icons.Default.CalendarMonth,
                 title = "متتبع القراءة",
                 description = "تتبع تقدمك وأهداف الختمة"
+            ),
+            Feature(
+                icon = Icons.Default.Info,
+                title = "التفسير",
+                description = "تفسير ابن كثير وغيره بالعربية والإنجليزية"
+            ),
+            Feature(
+                icon = Icons.Default.Abc,
+                title = "المفردات",
+                description = "معاني كلمات القرآن الكريم"
             )
         )
     } else {
         listOf(
             Feature(
-                icon = Icons.Default.Repeat,
-                title = "Repeat Mode",
-                description = "Repeat ayahs for better memorization"
+                icon = Icons.Default.MenuBook,
+                title = "Mushaf Fonts",
+                description = "604 per-page fonts for pixel-perfect Mushaf display"
             ),
             Feature(
                 icon = Icons.Default.Palette,
                 title = "Tajweed Mushaf",
                 description = "604 pages with Tajweed color-coded rules"
+            ),
+            Feature(
+                icon = Icons.Default.Repeat,
+                title = "Repeat Mode",
+                description = "Repeat ayahs for better memorization"
             ),
             Feature(
                 icon = Icons.Default.Notifications,
@@ -748,7 +799,275 @@ private fun getFeaturesList(versionName: String, language: AppLanguage): List<Fe
                 icon = Icons.Default.CalendarMonth,
                 title = "Reading Tracker",
                 description = "Track progress and Khatmah goals"
+            ),
+            Feature(
+                icon = Icons.Default.Info,
+                title = "Tafseer",
+                description = "Ibn Kathir and more in Arabic and English"
+            ),
+            Feature(
+                icon = Icons.Default.Abc,
+                title = "Mufradat",
+                description = "Word-by-word meanings of the Quran"
             )
         )
+    }
+}
+
+@Composable
+private fun LanguageToggle(
+    language: AppLanguage,
+    onToggle: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
+        horizontalArrangement = Arrangement.End
+    ) {
+        TextButton(
+            onClick = onToggle,
+            colors = ButtonDefaults.textButtonColors(contentColor = islamicGreen)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Language,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = if (language == AppLanguage.ARABIC) "English" else "العربية",
+                fontSize = 14.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun MushafFontDownloadSection(
+    language: AppLanguage,
+    isV2Downloaded: Boolean,
+    isV4Downloaded: Boolean,
+    v2Progress: com.quranmedia.player.data.source.FontDownloadProgress,
+    v4Progress: com.quranmedia.player.data.source.FontDownloadProgress,
+    onDownloadV2: () -> Unit,
+    onDownloadV4: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(lightGreen),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Download,
+                        contentDescription = null,
+                        tint = islamicGreen,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (language == AppLanguage.ARABIC)
+                            "تحميل خطوط المصحف"
+                        else "Download Mushaf Fonts",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                        color = darkGreen
+                    )
+                    Text(
+                        text = if (language == AppLanguage.ARABIC)
+                            "للحصول على أفضل عرض للقرآن"
+                        else "For the best Quran reading experience",
+                        fontSize = 14.sp,
+                        fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Plain Fonts (V2)
+            FontDownloadItem(
+                language = language,
+                title = if (language == AppLanguage.ARABIC) "الخطوط الأساسية" else "Plain Fonts",
+                size = "~198 MB",
+                isDownloaded = isV2Downloaded,
+                progress = v2Progress,
+                onDownload = onDownloadV2
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Tajweed Fonts (V4)
+            FontDownloadItem(
+                language = language,
+                title = if (language == AppLanguage.ARABIC) "خطوط التجويد" else "Tajweed Fonts",
+                size = "~159 MB",
+                isDownloaded = isV4Downloaded,
+                progress = v4Progress,
+                onDownload = onDownloadV4
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = if (language == AppLanguage.ARABIC)
+                    "يمكنك تخطي هذه الخطوة وتحميل الخطوط لاحقاً من الإعدادات"
+                else "You can skip this and download fonts later from Settings",
+                fontSize = 12.sp,
+                fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                color = Color.Gray,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun FontDownloadItem(
+    language: AppLanguage,
+    title: String,
+    size: String,
+    isDownloaded: Boolean,
+    progress: com.quranmedia.player.data.source.FontDownloadProgress,
+    onDownload: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isDownloaded) lightGreen.copy(alpha = 0.5f) else Color.Gray.copy(alpha = 0.1f))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                    color = darkGreen
+                )
+                // Show "Completed" badge when downloaded
+                if (isDownloaded) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = islamicGreen.copy(alpha = 0.2f)
+                    ) {
+                        Text(
+                            text = if (language == AppLanguage.ARABIC) "مكتمل" else "Completed",
+                            fontSize = 10.sp,
+                            color = islamicGreen,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+            Text(
+                text = if (isDownloaded) {
+                    if (language == AppLanguage.ARABIC) "تم التحميل بنجاح ✓" else "Downloaded successfully ✓"
+                } else size,
+                fontSize = 12.sp,
+                color = if (isDownloaded) islamicGreen else Color.Gray
+            )
+
+            // Show progress if downloading
+            if (progress.state == FontDownloadState.DOWNLOADING) {
+                Spacer(modifier = Modifier.height(4.dp))
+                LinearProgressIndicator(
+                    progress = progress.progress,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = islamicGreen,
+                    trackColor = Color.Gray.copy(alpha = 0.2f)
+                )
+                Text(
+                    text = "${(progress.progress * 100).toInt()}%",
+                    fontSize = 10.sp,
+                    color = Color.Gray
+                )
+            }
+        }
+
+        when {
+            isDownloaded -> {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Downloaded",
+                    tint = islamicGreen,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            progress.state == FontDownloadState.DOWNLOADING -> {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = islamicGreen,
+                    strokeWidth = 2.dp
+                )
+            }
+            progress.state == FontDownloadState.ERROR -> {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(onClick = onDownload) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Retry",
+                            tint = Color.Red
+                        )
+                    }
+                    Text(
+                        text = if (language == AppLanguage.ARABIC) "فشل" else "Failed",
+                        fontSize = 10.sp,
+                        color = Color.Red
+                    )
+                }
+            }
+            else -> {
+                Button(
+                    onClick = onDownload,
+                    colors = ButtonDefaults.buttonColors(containerColor = islamicGreen),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (language == AppLanguage.ARABIC) "تحميل" else "Download",
+                        fontSize = 12.sp,
+                        fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null
+                    )
+                }
+            }
+        }
     }
 }

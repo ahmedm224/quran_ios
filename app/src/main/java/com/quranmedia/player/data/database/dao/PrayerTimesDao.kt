@@ -23,6 +23,25 @@ interface PrayerTimesDao {
         longitude: Double
     ): PrayerTimesEntity?
 
+    @Query("""
+        SELECT * FROM prayer_times_cache
+        WHERE date = :date
+        AND latitude = :latitude
+        AND longitude = :longitude
+        AND calculationMethod = :calculationMethod
+        AND asrMethod = :asrMethod
+    """)
+    suspend fun getCachedPrayerTimes(
+        date: String,
+        latitude: Double,
+        longitude: Double,
+        calculationMethod: Int,
+        asrMethod: Int
+    ): PrayerTimesEntity?
+
+    @Query("SELECT * FROM prayer_times_cache WHERE date = :date ORDER BY cachedAt DESC LIMIT 1")
+    suspend fun getLatestCachedPrayerTimesForDate(date: String): PrayerTimesEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun cachePrayerTimes(prayerTimes: PrayerTimesEntity)
 

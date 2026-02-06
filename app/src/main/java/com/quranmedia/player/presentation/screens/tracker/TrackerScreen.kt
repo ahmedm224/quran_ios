@@ -34,28 +34,36 @@ import com.quranmedia.player.data.repository.AppLanguage
 import com.quranmedia.player.domain.model.ActivityType
 import com.quranmedia.player.domain.model.GoalType
 import com.quranmedia.player.presentation.screens.reader.components.scheherazadeFont
+import com.quranmedia.player.presentation.screens.reader.components.islamicGreen
+import com.quranmedia.player.presentation.screens.reader.components.lightGreen
+import com.quranmedia.player.presentation.screens.reader.components.darkGreen
+import com.quranmedia.player.presentation.screens.reader.components.goldAccent
+import com.quranmedia.player.presentation.screens.reader.components.creamBackground
+import com.quranmedia.player.presentation.components.CommonOverflowMenu
 import com.quranmedia.player.presentation.util.Strings
 import com.quranmedia.player.presentation.util.layoutDirection
+import com.quranmedia.player.domain.util.ArabicNumeralUtils
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
-
-// Islamic theme colors
-private val islamicGreen = Color(0xFF2E7D32)
-private val lightGreen = Color(0xFF4CAF50)
-private val darkGreen = Color(0xFF1B5E20)
-private val goldAccent = Color(0xFFFFD54F)
-private val creamBackground = Color(0xFFF5F5F5)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackerScreen(
     viewModel: TrackerViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToPrayerTimes: () -> Unit = {},
+    onNavigateToAthkar: () -> Unit = {},
+    onNavigateToDownloads: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {},
+    onNavigateToReading: () -> Unit = {},
+    onNavigateToImsakiya: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val settings by viewModel.settings.collectAsState(initial = com.quranmedia.player.data.repository.UserSettings())
 
-    // Determine app language from settings (you may need to pass this from viewModel)
-    val language = AppLanguage.ARABIC // Default to Arabic, ideally get from settings
+    // Get language from settings
+    val language = settings.appLanguage
 
     CompositionLocalProvider(LocalLayoutDirection provides language.layoutDirection()) {
         Scaffold(
@@ -76,6 +84,19 @@ fun TrackerScreen(
                             )
                         }
                     },
+                    actions = {
+                        CommonOverflowMenu(
+                            language = language,
+                            onNavigateToSettings = onNavigateToSettings,
+                            onNavigateToReading = onNavigateToReading,
+                            onNavigateToPrayerTimes = onNavigateToPrayerTimes,
+                            onNavigateToImsakiya = onNavigateToImsakiya,
+                            onNavigateToAthkar = onNavigateToAthkar,
+                            onNavigateToDownloads = onNavigateToDownloads,
+                            onNavigateToAbout = onNavigateToAbout,
+                            hideTracker = true  // Hide Tracker since we're on this screen
+                        )
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = islamicGreen,
                         titleContentColor = Color.White,
@@ -86,6 +107,7 @@ fun TrackerScreen(
             },
             containerColor = creamBackground
         ) { paddingValues ->
+            val useIndoArabic = language == AppLanguage.ARABIC && settings.useIndoArabicNumerals
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -98,7 +120,8 @@ fun TrackerScreen(
                 item {
                     HijriDateCard(
                         hijriDate = uiState.hijriDate,
-                        language = language
+                        language = language,
+                        useIndoArabic = useIndoArabic
                     )
                 }
 
@@ -119,7 +142,8 @@ fun TrackerScreen(
                         progress = uiState.todayProgress,
                         language = language,
                         onIncrementListened = { viewModel.incrementPagesListened(1) },
-                        onDecrementListened = { viewModel.incrementPagesListened(-1) }
+                        onDecrementListened = { viewModel.incrementPagesListened(-1) },
+                        useIndoArabic = useIndoArabic
                     )
                 }
 
@@ -128,7 +152,8 @@ fun TrackerScreen(
                     ActiveKhatmahGoalCard(
                         goalProgress = uiState.activeGoalProgress,
                         language = language,
-                        onCreateGoal = { viewModel.showCreateGoalDialog() }
+                        onCreateGoal = { viewModel.showCreateGoalDialog() },
+                        useIndoArabic = useIndoArabic
                     )
                 }
 
@@ -200,7 +225,8 @@ fun TrackerScreen(
 @Composable
 private fun HijriDateCard(
     hijriDate: com.quranmedia.player.domain.model.HijriDate?,
-    language: AppLanguage
+    language: AppLanguage,
+    useIndoArabic: Boolean = false
 ) {
     Card(
         modifier = Modifier
@@ -238,7 +264,9 @@ private fun HijriDateCard(
                 )
                 Text(
                     text = hijriDate?.let {
-                        "${it.day} ${if (language == AppLanguage.ARABIC) it.monthArabic else it.month} ${it.year}"
+                        val dayStr = ArabicNumeralUtils.formatNumber(it.day, useIndoArabic)
+                        val yearStr = ArabicNumeralUtils.formatNumber(it.year, useIndoArabic)
+                        "$dayStr ${if (language == AppLanguage.ARABIC) it.monthArabic else it.month} $yearStr"
                     } ?: "...",
                     fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
                     fontSize = 18.sp,
@@ -417,7 +445,8 @@ private fun QuranProgressCard(
     progress: com.quranmedia.player.domain.model.QuranProgress?,
     language: AppLanguage,
     onIncrementListened: () -> Unit,
-    onDecrementListened: () -> Unit
+    onDecrementListened: () -> Unit,
+    useIndoArabic: Boolean = false
 ) {
     Card(
         modifier = Modifier
@@ -467,7 +496,7 @@ private fun QuranProgressCard(
                         color = Color.Gray
                     )
                     Text(
-                        text = "${progress?.pagesRead ?: 0}",
+                        text = ArabicNumeralUtils.formatNumber(progress?.pagesRead ?: 0, useIndoArabic),
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = islamicGreen
@@ -513,7 +542,7 @@ private fun QuranProgressCard(
                         }
 
                         Text(
-                            text = "${progress?.pagesListened ?: 0}",
+                            text = ArabicNumeralUtils.formatNumber(progress?.pagesListened ?: 0, useIndoArabic),
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
                             color = islamicGreen,
@@ -547,7 +576,8 @@ private fun QuranProgressCard(
 private fun ActiveKhatmahGoalCard(
     goalProgress: com.quranmedia.player.domain.model.KhatmahProgress?,
     language: AppLanguage,
-    onCreateGoal: () -> Unit
+    onCreateGoal: () -> Unit,
+    useIndoArabic: Boolean = false
 ) {
     Card(
         modifier = Modifier
@@ -609,7 +639,7 @@ private fun ActiveKhatmahGoalCard(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = "${goalProgress.progressPercentage.toInt()}% ${if (language == AppLanguage.ARABIC) "مكتمل" else "complete"}",
+                        text = "${ArabicNumeralUtils.formatNumber(goalProgress.progressPercentage.toInt(), useIndoArabic)}% ${if (language == AppLanguage.ARABIC) "مكتمل" else "complete"}",
                         fontSize = 12.sp,
                         color = Color.Gray
                     )
@@ -624,17 +654,17 @@ private fun ActiveKhatmahGoalCard(
                 ) {
                     StatItem(
                         label = if (language == AppLanguage.ARABIC) "مكتملة" else "Completed",
-                        value = "${goalProgress.pagesCompleted}",
+                        value = ArabicNumeralUtils.formatNumber(goalProgress.pagesCompleted, useIndoArabic),
                         language = language
                     )
                     StatItem(
                         label = if (language == AppLanguage.ARABIC) "متبقية" else "Remaining",
-                        value = "${goalProgress.pagesRemaining}",
+                        value = ArabicNumeralUtils.formatNumber(goalProgress.pagesRemaining, useIndoArabic),
                         language = language
                     )
                     StatItem(
                         label = if (language == AppLanguage.ARABIC) "يومي" else "Daily",
-                        value = String.format("%.1f", goalProgress.dailyTargetPages),
+                        value = if (useIndoArabic) ArabicNumeralUtils.toIndoArabic(String.format("%.1f", goalProgress.dailyTargetPages)) else String.format("%.1f", goalProgress.dailyTargetPages),
                         language = language
                     )
                 }

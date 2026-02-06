@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import java.time.LocalTime
 import com.quranmedia.player.data.repository.AppLanguage
 import com.quranmedia.player.data.repository.PrayerNotificationMode
 import com.quranmedia.player.domain.model.AsrJuristicMethod
@@ -35,13 +36,14 @@ import com.quranmedia.player.domain.model.Athan
 import com.quranmedia.player.domain.model.CalculationMethod
 import com.quranmedia.player.domain.model.PrayerType
 import com.quranmedia.player.presentation.screens.reader.components.scheherazadeFont
+import com.quranmedia.player.presentation.screens.reader.components.islamicGreen
+import com.quranmedia.player.presentation.screens.reader.components.darkGreen
+import com.quranmedia.player.presentation.screens.reader.components.creamBackground
 import com.quranmedia.player.presentation.util.layoutDirection
+import com.quranmedia.player.domain.util.ArabicNumeralUtils
 
-// Theme colors - Islamic green
-private val islamicGreen = Color(0xFF2E7D32)
+// AthanSettings-specific light green for backgrounds (lighter than shared lightGreen)
 private val lightGreen = Color(0xFFE8F5E9)
-private val darkGreen = Color(0xFF1B5E20)
-private val creamBackground = Color(0xFFFAF8F3)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,6 +53,7 @@ fun AthanSettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val language = uiState.language
+    val useIndoArabic = language == AppLanguage.ARABIC && uiState.useIndoArabicNumerals
     val context = LocalContext.current
 
     var selectedPrayerForAthan by remember { mutableStateOf<PrayerType?>(null) }
@@ -260,15 +263,16 @@ fun AthanSettingsScreen(
                             ) {
                                 listOf(-2, -1, 0, 1, 2).forEach { adjustment ->
                                     val isSelected = adjustment == uiState.hijriDateAdjustment
+                                    val formattedNum = ArabicNumeralUtils.formatNumber(kotlin.math.abs(adjustment), useIndoArabic)
                                     FilterChip(
                                         selected = isSelected,
                                         onClick = { viewModel.setHijriDateAdjustment(adjustment) },
                                         label = {
                                             Text(
                                                 text = when {
-                                                    adjustment > 0 -> "+$adjustment"
-                                                    adjustment == 0 -> "0"
-                                                    else -> "$adjustment"
+                                                    adjustment > 0 -> "+$formattedNum"
+                                                    adjustment == 0 -> ArabicNumeralUtils.formatNumber(0, useIndoArabic)
+                                                    else -> "-$formattedNum"
                                                 },
                                                 fontSize = 13.sp
                                             )
@@ -283,9 +287,11 @@ fun AthanSettingsScreen(
                                 }
                             }
                             if (uiState.hijriDateAdjustment != 0) {
+                                val adjustmentNum = ArabicNumeralUtils.formatNumber(kotlin.math.abs(uiState.hijriDateAdjustment), useIndoArabic)
+                                val sign = if (uiState.hijriDateAdjustment > 0) "+" else "-"
                                 Text(
                                     text = if (language == AppLanguage.ARABIC)
-                                        "تعديل ${if (uiState.hijriDateAdjustment > 0) "+" else ""}${uiState.hijriDateAdjustment} ${if (kotlin.math.abs(uiState.hijriDateAdjustment) == 1) "يوم" else "أيام"}"
+                                        "تعديل $sign$adjustmentNum ${if (kotlin.math.abs(uiState.hijriDateAdjustment) == 1) "يوم" else "أيام"}"
                                     else
                                         "${if (uiState.hijriDateAdjustment > 0) "+" else ""}${uiState.hijriDateAdjustment} ${if (kotlin.math.abs(uiState.hijriDateAdjustment) == 1) "day" else "days"}",
                                     fontSize = 11.sp,
@@ -499,6 +505,7 @@ fun AthanSettingsScreen(
                                 ) {
                                     listOf(0, 5, 10, 15, 30).forEach { minutes ->
                                         val isSelected = uiState.notifyMinutesBefore == minutes
+                                        val formattedMinutes = ArabicNumeralUtils.formatNumber(minutes, useIndoArabic)
                                         FilterChip(
                                             selected = isSelected,
                                             onClick = { viewModel.setNotifyMinutesBefore(minutes) },
@@ -506,6 +513,8 @@ fun AthanSettingsScreen(
                                                 Text(
                                                     text = if (minutes == 0) {
                                                         if (language == AppLanguage.ARABIC) "الآن" else "Now"
+                                                    } else if (language == AppLanguage.ARABIC) {
+                                                        "$formattedMinutes د"
                                                     } else "${minutes}m",
                                                     fontSize = 11.sp
                                                 )

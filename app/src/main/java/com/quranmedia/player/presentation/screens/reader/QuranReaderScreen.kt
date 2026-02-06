@@ -1,5 +1,6 @@
 package com.quranmedia.player.presentation.screens.reader
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -14,8 +15,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -29,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.AnnotatedString
@@ -45,12 +49,21 @@ import com.quranmedia.player.data.repository.AppLanguage
 import com.quranmedia.player.domain.model.Ayah
 import com.quranmedia.player.domain.model.Reciter
 import com.quranmedia.player.presentation.screens.reader.components.QuranPageComposable
+import com.quranmedia.player.presentation.screens.reader.components.QCFPageComposable
 import com.quranmedia.player.presentation.screens.reader.components.CustomRecitationDialog
+import com.quranmedia.player.data.model.QCFPageData
+import com.quranmedia.player.data.model.QCFFontMode
+import androidx.compose.ui.text.font.FontFamily
 import com.quranmedia.player.presentation.util.Strings
 import com.quranmedia.player.presentation.util.layoutDirection
 import com.quranmedia.player.presentation.screens.reader.components.scheherazadeFont
+import com.quranmedia.player.presentation.screens.reader.components.surahNamesArabic
+import com.quranmedia.player.presentation.screens.reader.components.TafseerModal
+import com.quranmedia.player.presentation.screens.reader.components.TafseerModalState
+import com.quranmedia.player.data.QuranMetadata
 import com.quranmedia.player.presentation.theme.ReadingThemeColors
 import com.quranmedia.player.presentation.theme.ReadingThemes
+import com.quranmedia.player.domain.util.ArabicNumeralUtils
 import kotlinx.coroutines.launch
 
 /**
@@ -76,13 +89,20 @@ fun QuranReaderScreen(
     viewModel: QuranReaderViewModel = hiltViewModel(),
     onBack: () -> Unit,
     onNavigateToIndex: () -> Unit = {},
-    onNavigateToSettings: () -> Unit = {}
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToPrayerTimes: () -> Unit = {},
+    onNavigateToAthkar: () -> Unit = {},
+    onNavigateToTracker: () -> Unit = {},
+    onNavigateToDownloads: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {},
+    onNavigateToImsakiya: () -> Unit = {},  // TODO: Remove after Ramadan
 ) {
     val state by viewModel.state.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
     val settings by viewModel.settings.collectAsState()
     val downloadState by viewModel.downloadState.collectAsState()
     val language = settings.appLanguage
+    val useIndoArabic = language == AppLanguage.ARABIC && settings.useIndoArabicNumerals
     val readingTheme = settings.readingTheme
 
     // Get theme colors with custom colors if CUSTOM theme is selected
@@ -101,6 +121,10 @@ fun QuranReaderScreen(
     val coroutineScope = rememberCoroutineScope()
     val clipboardManager = LocalClipboardManager.current
     val density = LocalDensity.current
+
+    // Orientation detection
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     // Immersive mode - controls hidden by default
     var showControls by remember { mutableStateOf(false) }
@@ -140,6 +164,9 @@ fun QuranReaderScreen(
     var menuPosition by remember { mutableStateOf(Offset.Zero) }
     var showCustomRecitationDialog by remember { mutableStateOf(false) }
 
+    // Tafseer modal state
+    val tafseerState by viewModel.tafseerState.collectAsState()
+
     // Screen size for clamping menu position
     var screenWidth by remember { mutableStateOf(0) }
     var screenHeight by remember { mutableStateOf(0) }
@@ -148,6 +175,11 @@ fun QuranReaderScreen(
     var zoomMode by rememberSaveable { mutableStateOf(ZoomMode.ZOOMED) }  // Default to zoomed mode (larger text)
     // Track pending page navigation after zoom mode change (to ensure scroll happens after recomposition)
     var pendingPageAfterZoomChange by remember { mutableStateOf<Int?>(null) }
+
+    // Check QCF mode availability at screen level (for controlling zoom button)
+    val v2FontsAvailable = viewModel.isV2FontsDownloaded()
+    val v4FontsAvailable = viewModel.isV4FontsDownloaded()
+    val isQCFModeActive = settings.useQCFFont && (v2FontsAvailable || v4FontsAvailable)
 
     // In SPLIT mode, each real page becomes 2 virtual pages (first half, second half)
     val virtualPageCount = when (zoomMode) {
@@ -177,6 +209,15 @@ fun QuranReaderScreen(
         initialPage = validInitialPage - 1,
         pageCount = { maxOf(1, virtualPageCount) }
     )
+
+    // Reset zoom mode to ZOOMED when switching to QCF mode (split doesn't work with per-page fonts)
+    LaunchedEffect(isQCFModeActive) {
+        if (isQCFModeActive && zoomMode == ZoomMode.SPLIT) {
+            val currentRealPage = virtualToRealPage(pagerState.currentPage)
+            zoomMode = ZoomMode.ZOOMED
+            pendingPageAfterZoomChange = currentRealPage - 1
+        }
+    }
 
     // Track the page where playback is happening
     var playbackPage by remember { mutableStateOf<Int?>(null) }
@@ -348,29 +389,91 @@ fun QuranReaderScreen(
                         }
                     }
 
-                    QuranPageComposable(
-                        pageNumber = realPageNumber,
-                        ayahs = pageAyahs,
-                        highlightedAyah = state.highlightedAyah,
-                        modifier = Modifier.fillMaxSize(),
-                        zoomMode = zoomMode,
-                        splitHalf = if (showSecondHalf) 1 else 0,  // 0 = first half, 1 = second half
-                        readingTheme = readingTheme,
-                        customBackgroundColor = if (readingTheme == com.quranmedia.player.data.repository.ReadingTheme.CUSTOM)
-                            Color((settings.customBackgroundColor and 0xFFFFFFFF).toInt()) else null,
-                        customTextColor = if (readingTheme == com.quranmedia.player.data.repository.ReadingTheme.CUSTOM)
-                            Color((settings.customTextColor and 0xFFFFFFFF).toInt()) else null,
-                        customHeaderColor = if (readingTheme == com.quranmedia.player.data.repository.ReadingTheme.CUSTOM)
-                            Color((settings.customHeaderColor and 0xFFFFFFFF).toInt()) else null,
-                        onTap = {
-                            showControls = !showControls
-                        },
-                        onAyahLongPress = { ayah: Ayah, position: Offset ->
-                            selectedAyah = ayah
-                            menuPosition = position
-                            showAyahMenu = true
+                    // Check if QCF mode is enabled AND fonts are available
+                    // If fonts aren't downloaded, fall back to regular rendering
+                    val v2Available = viewModel.isV2FontsDownloaded()
+                    val v4Available = viewModel.isV4FontsDownloaded()
+                    val qcfFontsAvailable = v2Available || v4Available
+
+                    // Determine actual font mode based on availability
+                    // If user wants Tajweed but V4 not available, fall back to V2 if available
+                    val effectiveFontMode = when {
+                        settings.qcfTajweedMode && v4Available -> QCFFontMode.TAJWEED
+                        v2Available -> QCFFontMode.PLAIN
+                        v4Available -> QCFFontMode.TAJWEED  // Use V4 as fallback if only V4 available
+                        else -> QCFFontMode.PLAIN  // Default, won't be used if no fonts
+                    }
+
+                    val useQCFMode = settings.useQCFFont && qcfFontsAvailable
+
+                    if (useQCFMode) {
+                        // QCF Mode - use per-page fonts
+                        var qcfPageData by remember { mutableStateOf<QCFPageData?>(null) }
+                        var qcfFont by remember { mutableStateOf<FontFamily?>(null) }
+                        val qcfFontMode = effectiveFontMode
+
+                        LaunchedEffect(realPageNumber, qcfFontMode) {
+                            // Load QCF page data and font
+                            qcfPageData = viewModel.qcfAssetLoader.loadPageData(realPageNumber)
+                            qcfFont = viewModel.qcfAssetLoader.loadFont(realPageNumber, qcfFontMode)
+                            // Preload adjacent pages
+                            viewModel.qcfAssetLoader.preloadFonts(realPageNumber, qcfFontMode, range = 1)
                         }
-                    )
+
+                        QCFPageComposable(
+                            pageNumber = realPageNumber,
+                            pageData = qcfPageData,
+                            fontFamily = qcfFont,
+                            fontMode = qcfFontMode,
+                            useBoldFont = settings.useBoldFont,
+                            ayahs = pageAyahs,
+                            highlightedAyah = state.highlightedAyah,
+                            readingTheme = readingTheme,
+                            customBackgroundColor = if (readingTheme == com.quranmedia.player.data.repository.ReadingTheme.CUSTOM)
+                                Color((settings.customBackgroundColor and 0xFFFFFFFF).toInt()) else null,
+                            customTextColor = if (readingTheme == com.quranmedia.player.data.repository.ReadingTheme.CUSTOM)
+                                Color((settings.customTextColor and 0xFFFFFFFF).toInt()) else null,
+                            customHeaderColor = if (readingTheme == com.quranmedia.player.data.repository.ReadingTheme.CUSTOM)
+                                Color((settings.customHeaderColor and 0xFFFFFFFF).toInt()) else null,
+                            isLandscape = isLandscape,
+                            modifier = Modifier.fillMaxSize(),
+                            onTap = {
+                                showControls = !showControls
+                            },
+                            onAyahLongPress = { ayah: Ayah, position: Offset ->
+                                selectedAyah = ayah
+                                menuPosition = position
+                                showAyahMenu = true
+                            }
+                        )
+                    } else {
+                        // Original mode - use KFGQPC font
+                        QuranPageComposable(
+                            pageNumber = realPageNumber,
+                            ayahs = pageAyahs,
+                            highlightedAyah = state.highlightedAyah,
+                            modifier = Modifier.fillMaxSize(),
+                            zoomMode = zoomMode,
+                            splitHalf = if (showSecondHalf) 1 else 0,  // 0 = first half, 1 = second half
+                            readingTheme = readingTheme,
+                            customBackgroundColor = if (readingTheme == com.quranmedia.player.data.repository.ReadingTheme.CUSTOM)
+                                Color((settings.customBackgroundColor and 0xFFFFFFFF).toInt()) else null,
+                            customTextColor = if (readingTheme == com.quranmedia.player.data.repository.ReadingTheme.CUSTOM)
+                                Color((settings.customTextColor and 0xFFFFFFFF).toInt()) else null,
+                            customHeaderColor = if (readingTheme == com.quranmedia.player.data.repository.ReadingTheme.CUSTOM)
+                                Color((settings.customHeaderColor and 0xFFFFFFFF).toInt()) else null,
+                            useBoldFont = settings.useBoldFont,
+                            isLandscape = isLandscape,
+                            onTap = {
+                                showControls = !showControls
+                            },
+                            onAyahLongPress = { ayah: Ayah, position: Offset ->
+                                selectedAyah = ayah
+                                menuPosition = position
+                                showAyahMenu = true
+                            }
+                        )
+                    }
                 }
                 }
             }
@@ -389,12 +492,44 @@ fun QuranReaderScreen(
                             if (isSecondHalf(pagerState.currentPage)) " (٢/٢)" else " (١/٢)"
                         } else ""
 
+                        // Get surah number for current page
+                        val currentSurahNumber = remember(currentRealPage) {
+                            QuranMetadata.surahStartPages.entries
+                                .filter { it.value <= currentRealPage }
+                                .maxByOrNull { it.value }?.key ?: 1
+                        }
+
+                        // Get juz number for current page
+                        val currentJuz = remember(currentRealPage) {
+                            QuranMetadata.juzStartInfo.entries
+                                .filter { it.value.third <= currentRealPage }
+                                .maxByOrNull { it.value.third }?.key ?: 1
+                        }
+
+                        // Surah name
+                        val surahNameArabic = surahNamesArabic[currentSurahNumber] ?: "الفاتحة"
+                        val surahNameEnglish = getSurahNameEnglish(currentSurahNumber)
+
                         Column {
+                            val formattedJuz = ArabicNumeralUtils.formatNumber(currentJuz, useIndoArabic)
+                            val formattedPage = ArabicNumeralUtils.formatNumber(currentRealPage, useIndoArabic)
+                            val formattedHalfIndicator = if (zoomMode == ZoomMode.SPLIT) {
+                                if (isSecondHalf(pagerState.currentPage)) {
+                                    if (useIndoArabic) " (٢/٢)" else " (2/2)"
+                                } else {
+                                    if (useIndoArabic) " (١/٢)" else " (1/2)"
+                                }
+                            } else ""
+                            // Surah name and Juz - smaller font to fit two-digit juz numbers
                             Text(
-                                text = if (language == AppLanguage.ARABIC) "القرآن الكريم" else "Quran",
-                                fontSize = 18.sp,
+                                text = if (language == AppLanguage.ARABIC)
+                                    "سورة $surahNameArabic | الجزء $formattedJuz"
+                                else
+                                    "$surahNameEnglish | Juz $currentJuz",
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                maxLines = 1
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
 
                             // Page number with daily target on same line
@@ -404,9 +539,9 @@ fun QuranReaderScreen(
                             ) {
                                 Text(
                                     text = if (language == AppLanguage.ARABIC)
-                                        "صفحة $currentRealPage من ${state.totalPages}$halfIndicator"
+                                        "صفحة $formattedPage$formattedHalfIndicator"
                                     else
-                                        "Page $currentRealPage of ${state.totalPages}$halfIndicator",
+                                        "Page $currentRealPage$halfIndicator",
                                     fontSize = 12.sp,
                                     color = themeColors.topBarContent.copy(alpha = 0.8f),
                                     maxLines = 1
@@ -414,9 +549,10 @@ fun QuranReaderScreen(
 
                                 // Daily target indicator
                                 state.dailyTargetPages?.let { target ->
+                                    val formattedTarget = ArabicNumeralUtils.formatNumber(String.format("%.0f", target).toInt(), useIndoArabic)
                                     Text(
                                         text = if (language == AppLanguage.ARABIC)
-                                            "• ${String.format("%.0f", target)} ص/يوم"
+                                            "• $formattedTarget ص/يوم"
                                         else
                                             "• ${String.format("%.0f", target)} p/day",
                                         fontSize = 11.sp,
@@ -472,44 +608,185 @@ fun QuranReaderScreen(
                                 tint = if (state.isCurrentPageBookmarked) themeColors.ayahMarker else themeColors.topBarContent
                             )
                         }
-                        IconButton(onClick = {
-                            // Remember current real page before changing zoom mode
-                            val currentRealPage = virtualToRealPage(pagerState.currentPage)
+                        // Hide zoom button in QCF mode (split doesn't work with per-page fonts)
+                        if (!isQCFModeActive) {
+                            IconButton(onClick = {
+                                // Remember current real page before changing zoom mode
+                                val currentRealPage = virtualToRealPage(pagerState.currentPage)
 
-                            // Toggle between ZOOMED and SPLIT modes
-                            // Pages 1-2 stay in ZOOMED mode (too little text to split)
-                            val newZoomMode = when (zoomMode) {
-                                ZoomMode.ZOOMED -> if (currentRealPage <= 2) ZoomMode.ZOOMED else ZoomMode.SPLIT
-                                ZoomMode.SPLIT -> ZoomMode.ZOOMED
-                                ZoomMode.FIT_SCREEN -> ZoomMode.ZOOMED  // Fallback, not used
+                                // Toggle between ZOOMED and SPLIT modes
+                                // Pages 1-2 stay in ZOOMED mode (too little text to split)
+                                val newZoomMode = when (zoomMode) {
+                                    ZoomMode.ZOOMED -> if (currentRealPage <= 2) ZoomMode.ZOOMED else ZoomMode.SPLIT
+                                    ZoomMode.SPLIT -> ZoomMode.ZOOMED
+                                    ZoomMode.FIT_SCREEN -> ZoomMode.ZOOMED  // Fallback, not used
+                                }
+
+                                // Calculate target virtual page for new mode
+                                // Store it for navigation AFTER recomposition (fixes page 302+ bug)
+                                pendingPageAfterZoomChange = when (newZoomMode) {
+                                    ZoomMode.SPLIT -> (currentRealPage - 1) * 2  // First half of same page
+                                    else -> currentRealPage - 1
+                                }
+
+                                // Change zoom mode - this triggers recomposition with new pageCount
+                                zoomMode = newZoomMode
+                            }) {
+                                Icon(
+                                    when (zoomMode) {
+                                        ZoomMode.ZOOMED -> Icons.Default.ZoomIn           // Can zoom to split
+                                        ZoomMode.SPLIT -> Icons.Default.ZoomOut           // Can zoom out
+                                        ZoomMode.FIT_SCREEN -> Icons.Default.ZoomIn       // Fallback
+                                    },
+                                    contentDescription = "Zoom",
+                                    tint = themeColors.topBarContent
+                                )
                             }
-
-                            // Calculate target virtual page for new mode
-                            // Store it for navigation AFTER recomposition (fixes page 302+ bug)
-                            pendingPageAfterZoomChange = when (newZoomMode) {
-                                ZoomMode.SPLIT -> (currentRealPage - 1) * 2  // First half of same page
-                                else -> currentRealPage - 1
-                            }
-
-                            // Change zoom mode - this triggers recomposition with new pageCount
-                            zoomMode = newZoomMode
-                        }) {
-                            Icon(
-                                when (zoomMode) {
-                                    ZoomMode.ZOOMED -> Icons.Default.ZoomIn           // Can zoom to split
-                                    ZoomMode.SPLIT -> Icons.Default.ZoomOut           // Can zoom out
-                                    ZoomMode.FIT_SCREEN -> Icons.Default.ZoomIn       // Fallback
-                                },
-                                contentDescription = "Zoom",
-                                tint = themeColors.topBarContent
-                            )
                         }
-                        IconButton(onClick = onNavigateToSettings) {
-                            Icon(
-                                Icons.Default.Settings,
-                                contentDescription = "Settings",
-                                tint = themeColors.topBarContent
-                            )
+
+                        // Three-dot overflow menu
+                        var showOverflowMenu by remember { mutableStateOf(false) }
+                        Box {
+                            IconButton(onClick = { showOverflowMenu = true }) {
+                                Icon(
+                                    Icons.Default.MoreVert,
+                                    contentDescription = if (language == AppLanguage.ARABIC) "المزيد" else "More",
+                                    tint = themeColors.topBarContent
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showOverflowMenu,
+                                onDismissRequest = { showOverflowMenu = false }
+                            ) {
+                                // Go to page
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (language == AppLanguage.ARABIC) "الذهاب إلى صفحة" else "Go to page",
+                                            fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showGoToPageDialog = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Numbers, contentDescription = null)
+                                    }
+                                )
+                                // Settings
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (language == AppLanguage.ARABIC) "الإعدادات" else "Settings",
+                                            fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        onNavigateToSettings()
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Settings, contentDescription = null)
+                                    }
+                                )
+                                // Prayer Times
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (language == AppLanguage.ARABIC) "مواقيت الصلاة" else "Prayer Times",
+                                            fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        onNavigateToPrayerTimes()
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Schedule, contentDescription = null)
+                                    }
+                                )
+                                // Athkar
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (language == AppLanguage.ARABIC) "الأذكار" else "Athkar",
+                                            fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        onNavigateToAthkar()
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.WbSunny, contentDescription = null)
+                                    }
+                                )
+                                // Daily Tracker
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (language == AppLanguage.ARABIC) "المتابعة اليومية" else "Daily Tracker",
+                                            fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        onNavigateToTracker()
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.CheckCircle, contentDescription = null)
+                                    }
+                                )
+                                // Downloads
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (language == AppLanguage.ARABIC) "التحميلات" else "Downloads",
+                                            fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        onNavigateToDownloads()
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.CloudDownload, contentDescription = null)
+                                    }
+                                )
+                                // Ramadan Imsakiya (TODO: Remove after Ramadan)
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (language == AppLanguage.ARABIC) "إمساكية رمضان" else "Ramadan Imsakiya",
+                                            fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        onNavigateToImsakiya()
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.NightsStay, contentDescription = null)
+                                    }
+                                )
+                                // About
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (language == AppLanguage.ARABIC) "حول التطبيق" else "About",
+                                            fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        onNavigateToAbout()
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Info, contentDescription = null)
+                                    }
+                                )
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -624,8 +901,8 @@ fun QuranReaderScreen(
 
             // Compact icon-only context menu at touch position
             if (showAyahMenu && selectedAyah != null) {
-                // Menu dimensions (approximate): ~180dp wide (4 icons), ~48dp tall
-                val menuWidthPx = with(density) { 180.dp.toPx().toInt() }
+                // Menu dimensions (approximate): ~220dp wide (5 icons), ~48dp tall
+                val menuWidthPx = with(density) { 220.dp.toPx().toInt() }
                 val menuHeightPx = with(density) { 48.dp.toPx().toInt() }
                 val padding = with(density) { 8.dp.toPx().toInt() }
 
@@ -720,6 +997,25 @@ fun QuranReaderScreen(
                                 )
                             }
 
+                            // Tafseer button
+                            IconButton(
+                                onClick = {
+                                    selectedAyah?.let { ayah ->
+                                        viewModel.showTafseer(ayah)
+                                    }
+                                    showAyahMenu = false
+                                    selectedAyah = null
+                                },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.MenuBook,
+                                    contentDescription = "Tafseer",
+                                    tint = themeColors.accent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
                             // Custom Recitation button
                             IconButton(
                                 onClick = {
@@ -793,6 +1089,15 @@ fun QuranReaderScreen(
         )
     }
 
+    // Tafseer Modal
+    TafseerModal(
+        state = tafseerState,
+        language = language,
+        onDismiss = { viewModel.dismissTafseer() },
+        onSelectTafseer = { tafseerId -> viewModel.selectTafseer(tafseerId) },
+        onCopy = { /* Toast or snackbar can be added here */ },
+        onNavigateToDownload = onNavigateToSettings
+    )
 }
 
 @Composable
@@ -1086,4 +1391,31 @@ private fun GoToPageDialog(
 private fun formatTime(ms: Long): String {
     val totalSeconds = ms / 1000
     return "%d:%02d".format(totalSeconds / 60, totalSeconds % 60)
+}
+
+private fun getSurahNameEnglish(surahNumber: Int): String = when (surahNumber) {
+    1 -> "Al-Fatiha"; 2 -> "Al-Baqarah"; 3 -> "Aal-E-Imran"; 4 -> "An-Nisa"; 5 -> "Al-Ma'idah"
+    6 -> "Al-An'am"; 7 -> "Al-A'raf"; 8 -> "Al-Anfal"; 9 -> "At-Tawbah"; 10 -> "Yunus"
+    11 -> "Hud"; 12 -> "Yusuf"; 13 -> "Ar-Ra'd"; 14 -> "Ibrahim"; 15 -> "Al-Hijr"
+    16 -> "An-Nahl"; 17 -> "Al-Isra"; 18 -> "Al-Kahf"; 19 -> "Maryam"; 20 -> "Ta-Ha"
+    21 -> "Al-Anbiya"; 22 -> "Al-Hajj"; 23 -> "Al-Mu'minun"; 24 -> "An-Nur"; 25 -> "Al-Furqan"
+    26 -> "Ash-Shu'ara"; 27 -> "An-Naml"; 28 -> "Al-Qasas"; 29 -> "Al-Ankabut"; 30 -> "Ar-Rum"
+    31 -> "Luqman"; 32 -> "As-Sajdah"; 33 -> "Al-Ahzab"; 34 -> "Saba"; 35 -> "Fatir"
+    36 -> "Ya-Sin"; 37 -> "As-Saffat"; 38 -> "Sad"; 39 -> "Az-Zumar"; 40 -> "Ghafir"
+    41 -> "Fussilat"; 42 -> "Ash-Shura"; 43 -> "Az-Zukhruf"; 44 -> "Ad-Dukhan"; 45 -> "Al-Jathiyah"
+    46 -> "Al-Ahqaf"; 47 -> "Muhammad"; 48 -> "Al-Fath"; 49 -> "Al-Hujurat"; 50 -> "Qaf"
+    51 -> "Adh-Dhariyat"; 52 -> "At-Tur"; 53 -> "An-Najm"; 54 -> "Al-Qamar"; 55 -> "Ar-Rahman"
+    56 -> "Al-Waqi'ah"; 57 -> "Al-Hadid"; 58 -> "Al-Mujadilah"; 59 -> "Al-Hashr"; 60 -> "Al-Mumtahanah"
+    61 -> "As-Saff"; 62 -> "Al-Jumu'ah"; 63 -> "Al-Munafiqun"; 64 -> "At-Taghabun"; 65 -> "At-Talaq"
+    66 -> "At-Tahrim"; 67 -> "Al-Mulk"; 68 -> "Al-Qalam"; 69 -> "Al-Haqqah"; 70 -> "Al-Ma'arij"
+    71 -> "Nuh"; 72 -> "Al-Jinn"; 73 -> "Al-Muzzammil"; 74 -> "Al-Muddaththir"; 75 -> "Al-Qiyamah"
+    76 -> "Al-Insan"; 77 -> "Al-Mursalat"; 78 -> "An-Naba"; 79 -> "An-Nazi'at"; 80 -> "Abasa"
+    81 -> "At-Takwir"; 82 -> "Al-Infitar"; 83 -> "Al-Mutaffifin"; 84 -> "Al-Inshiqaq"; 85 -> "Al-Buruj"
+    86 -> "At-Tariq"; 87 -> "Al-A'la"; 88 -> "Al-Ghashiyah"; 89 -> "Al-Fajr"; 90 -> "Al-Balad"
+    91 -> "Ash-Shams"; 92 -> "Al-Layl"; 93 -> "Ad-Duha"; 94 -> "Ash-Sharh"; 95 -> "At-Tin"
+    96 -> "Al-Alaq"; 97 -> "Al-Qadr"; 98 -> "Al-Bayyinah"; 99 -> "Az-Zalzalah"; 100 -> "Al-Adiyat"
+    101 -> "Al-Qari'ah"; 102 -> "At-Takathur"; 103 -> "Al-Asr"; 104 -> "Al-Humazah"; 105 -> "Al-Fil"
+    106 -> "Quraysh"; 107 -> "Al-Ma'un"; 108 -> "Al-Kawthar"; 109 -> "Al-Kafirun"; 110 -> "An-Nasr"
+    111 -> "Al-Masad"; 112 -> "Al-Ikhlas"; 113 -> "Al-Falaq"; 114 -> "An-Nas"
+    else -> "Surah $surahNumber"
 }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import com.quranmedia.player.presentation.components.CommonOverflowMenu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,23 +30,30 @@ import com.quranmedia.player.data.repository.AppLanguage
 import com.quranmedia.player.domain.model.Reciter
 import com.quranmedia.player.domain.model.Surah
 import com.quranmedia.player.presentation.screens.reader.components.scheherazadeFont
+import com.quranmedia.player.presentation.screens.reader.components.islamicGreen
+import com.quranmedia.player.presentation.screens.reader.components.darkGreen
+import com.quranmedia.player.presentation.screens.reader.components.creamBackground
 import com.quranmedia.player.presentation.util.layoutDirection
+import com.quranmedia.player.domain.util.ArabicNumeralUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadsScreen(
     onNavigateBack: () -> Unit,
     onDownloadClick: (reciterId: String, surahNumber: Int) -> Unit = { _, _ -> },
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToPrayerTimes: () -> Unit = {},
+    onNavigateToAthkar: () -> Unit = {},
+    onNavigateToTracker: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {},
+    onNavigateToReading: () -> Unit = {},
+    onNavigateToImsakiya: () -> Unit = {},
     viewModel: DownloadsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
     val settings by viewModel.settings.collectAsState()
     val language = settings.appLanguage
-
-    val islamicGreen = Color(0xFF2E7D32)
-    val lightGreen = Color(0xFF66BB6A)
-    val darkGreen = Color(0xFF1B5E20)
-    val creamBackground = Color(0xFFFAF8F3)
+    val useIndoArabic = language == AppLanguage.ARABIC && settings.useIndoArabicNumerals
 
     CompositionLocalProvider(LocalLayoutDirection provides language.layoutDirection()) {
         Scaffold(
@@ -61,6 +69,19 @@ fun DownloadsScreen(
                         IconButton(onClick = onNavigateBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                         }
+                    },
+                    actions = {
+                        CommonOverflowMenu(
+                            language = language,
+                            onNavigateToSettings = onNavigateToSettings,
+                            onNavigateToReading = onNavigateToReading,
+                            onNavigateToPrayerTimes = onNavigateToPrayerTimes,
+                            onNavigateToImsakiya = onNavigateToImsakiya,
+                            onNavigateToAthkar = onNavigateToAthkar,
+                            onNavigateToTracker = onNavigateToTracker,
+                            onNavigateToAbout = onNavigateToAbout,
+                            hideDownloads = true  // Hide Downloads since we're on this screen
+                        )
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = islamicGreen,
@@ -117,7 +138,8 @@ fun DownloadsScreen(
                                 onPause = { viewModel.pauseDownload(downloadWithReciter.download.id) },
                                 onResume = { viewModel.resumeDownload(downloadWithReciter.download.id) },
                                 onCancel = { viewModel.cancelDownload(downloadWithReciter.download.id) },
-                                onDelete = { viewModel.deleteDownload(downloadWithReciter.download.reciterId, downloadWithReciter.download.surahNumber) }
+                                onDelete = { viewModel.deleteDownload(downloadWithReciter.download.reciterId, downloadWithReciter.download.surahNumber) },
+                                useIndoArabic = useIndoArabic
                             )
                         }
                     }
@@ -133,11 +155,15 @@ fun DownloadsScreen(
                 surahs = state.surahs,
                 selectedReciter = state.selectedReciter,
                 selectedSurah = state.selectedSurah,
+                downloadFullQuran = state.downloadFullQuran,
+                isDownloading = state.fullQuranDownloading,
                 language = language,
                 onReciterSelected = { viewModel.selectReciter(it) },
                 onSurahSelected = { viewModel.selectSurah(it) },
+                onFullQuranToggled = { viewModel.toggleFullQuranDownload(it) },
                 onDismiss = { viewModel.hideDownloadDialog() },
-                onConfirm = { viewModel.startDownload() }
+                onConfirm = { viewModel.startDownload() },
+                useIndoArabic = useIndoArabic
             )
         }
     }
@@ -198,7 +224,8 @@ private fun DownloadCard(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onCancel: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    useIndoArabic: Boolean = false
 ) {
     val download = downloadWithReciter.download
     val islamicGreen = Color(0xFF2E7D32)
@@ -235,7 +262,7 @@ private fun DownloadCard(
                     // Display surah name based on language, fall back to number if not available
                     val surahDisplayName = if (isArabic) {
                         downloadWithReciter.surahNameArabic?.let { "سورة $it" }
-                            ?: "سورة ${download.surahNumber}"
+                            ?: "سورة ${ArabicNumeralUtils.formatNumber(download.surahNumber, useIndoArabic)}"
                     } else {
                         downloadWithReciter.surahNameEnglish?.let { "Surah $it" }
                             ?: "Surah ${download.surahNumber}"
@@ -281,7 +308,7 @@ private fun DownloadCard(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "${(download.progress * 100).toInt()}%",
+                            text = ArabicNumeralUtils.formatNumber((download.progress * 100).toInt(), useIndoArabic) + "%",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.Gray
                         )
@@ -412,18 +439,22 @@ private fun DownloadSelectionDialog(
     surahs: List<Surah>,
     selectedReciter: Reciter?,
     selectedSurah: Surah?,
+    downloadFullQuran: Boolean,
+    isDownloading: Boolean,
     language: AppLanguage,
     onReciterSelected: (Reciter) -> Unit,
     onSurahSelected: (Surah) -> Unit,
+    onFullQuranToggled: (Boolean) -> Unit,
     onDismiss: () -> Unit,
-    onConfirm: () -> Unit
+    onConfirm: () -> Unit,
+    useIndoArabic: Boolean = false
 ) {
     val islamicGreen = Color(0xFF2E7D32)
     val isArabic = language == AppLanguage.ARABIC
     var reciterExpanded by remember { mutableStateOf(false) }
     var surahExpanded by remember { mutableStateOf(false) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(onDismissRequest = { if (!isDownloading) onDismiss() }) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -439,7 +470,11 @@ private fun DownloadSelectionDialog(
             ) {
                 // Title
                 Text(
-                    text = if (isArabic) "تنزيل سورة" else "Download Surah",
+                    text = if (isArabic) {
+                        if (downloadFullQuran) "تنزيل القرآن كاملاً" else "تنزيل سورة"
+                    } else {
+                        if (downloadFullQuran) "Download Full Quran" else "Download Surah"
+                    },
                     fontFamily = if (isArabic) scheherazadeFont else null,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -506,68 +541,114 @@ private fun DownloadSelectionDialog(
                     }
                 }
 
-                // Surah Dropdown
-                Column {
-                    Text(
-                        text = if (isArabic) "اختر السورة" else "Select Surah",
-                        fontFamily = if (isArabic) scheherazadeFont else null,
-                        fontSize = 14.sp,
-                        color = Color.Gray
+                // Full Quran Toggle
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (downloadFullQuran) islamicGreen.copy(alpha = 0.1f) else Color.Gray.copy(alpha = 0.05f)
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    ExposedDropdownMenuBox(
-                        expanded = surahExpanded,
-                        onExpandedChange = { surahExpanded = it }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onFullQuranToggled(!downloadFullQuran) }
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        OutlinedTextField(
-                            value = if (selectedSurah != null) {
-                                if (isArabic) "${selectedSurah.number}. ${selectedSurah.nameArabic}"
-                                else "${selectedSurah.number}. ${selectedSurah.nameEnglish}"
-                            } else "",
-                            onValueChange = {},
-                            readOnly = true,
-                            placeholder = {
-                                Text(
-                                    text = if (isArabic) "اختر سورة..." else "Choose a surah...",
-                                    fontFamily = if (isArabic) scheherazadeFont else null,
-                                    color = Color.Gray
-                                )
-                            },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = surahExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = islamicGreen,
-                                unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f),
-                                focusedTextColor = Color.Black,
-                                unfocusedTextColor = Color.Black
-                            ),
-                            textStyle = androidx.compose.ui.text.TextStyle(
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (isArabic) "تنزيل القرآن كاملاً" else "Download Full Quran",
                                 fontFamily = if (isArabic) scheherazadeFont else null,
-                                fontSize = 16.sp,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
                                 color = Color.Black
                             )
+                            Text(
+                                text = if (isArabic) "تنزيل جميع السور (١١٤ سورة)" else "Download all 114 surahs",
+                                fontFamily = if (isArabic) scheherazadeFont else null,
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                        }
+                        Switch(
+                            checked = downloadFullQuran,
+                            onCheckedChange = { onFullQuranToggled(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = islamicGreen,
+                                uncheckedThumbColor = Color.White,
+                                uncheckedTrackColor = Color.Gray.copy(alpha = 0.3f)
+                            )
                         )
-                        ExposedDropdownMenu(
+                    }
+                }
+
+                // Surah Dropdown (only show if not downloading full Quran)
+                if (!downloadFullQuran) {
+                    Column {
+                        Text(
+                            text = if (isArabic) "اختر السورة" else "Select Surah",
+                            fontFamily = if (isArabic) scheherazadeFont else null,
+                            fontSize = 14.sp,
+                            color = Color.Gray
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        ExposedDropdownMenuBox(
                             expanded = surahExpanded,
-                            onDismissRequest = { surahExpanded = false },
-                            modifier = Modifier.heightIn(max = 300.dp)
+                            onExpandedChange = { surahExpanded = it }
                         ) {
-                            surahs.forEach { surah ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = if (isArabic) "${surah.number}. ${surah.nameArabic}"
-                                                   else "${surah.number}. ${surah.nameEnglish}",
-                                            fontFamily = if (isArabic) scheherazadeFont else null
-                                        )
-                                    },
-                                    onClick = {
-                                        onSurahSelected(surah)
-                                        surahExpanded = false
-                                    }
+                            OutlinedTextField(
+                                value = if (selectedSurah != null) {
+                                    if (isArabic) "${ArabicNumeralUtils.formatNumber(selectedSurah.number, useIndoArabic)}. ${selectedSurah.nameArabic}"
+                                    else "${selectedSurah.number}. ${selectedSurah.nameEnglish}"
+                                } else "",
+                                onValueChange = {},
+                                readOnly = true,
+                                placeholder = {
+                                    Text(
+                                        text = if (isArabic) "اختر سورة..." else "Choose a surah...",
+                                        fontFamily = if (isArabic) scheherazadeFont else null,
+                                        color = Color.Gray
+                                    )
+                                },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = surahExpanded) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = islamicGreen,
+                                    unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f),
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black
+                                ),
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    fontFamily = if (isArabic) scheherazadeFont else null,
+                                    fontSize = 16.sp,
+                                    color = Color.Black
                                 )
+                            )
+                            ExposedDropdownMenu(
+                                expanded = surahExpanded,
+                                onDismissRequest = { surahExpanded = false },
+                                modifier = Modifier.heightIn(max = 300.dp)
+                            ) {
+                                surahs.forEach { surah ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = if (isArabic) "${ArabicNumeralUtils.formatNumber(surah.number, useIndoArabic)}. ${surah.nameArabic}"
+                                                       else "${surah.number}. ${surah.nameEnglish}",
+                                                fontFamily = if (isArabic) scheherazadeFont else null
+                                            )
+                                        },
+                                        onClick = {
+                                            onSurahSelected(surah)
+                                            surahExpanded = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -581,6 +662,7 @@ private fun DownloadSelectionDialog(
                     OutlinedButton(
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f),
+                        enabled = !isDownloading,
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Gray)
                     ) {
                         Text(
@@ -591,15 +673,32 @@ private fun DownloadSelectionDialog(
                     Button(
                         onClick = onConfirm,
                         modifier = Modifier.weight(1f),
-                        enabled = selectedReciter != null && selectedSurah != null,
+                        enabled = selectedReciter != null && (downloadFullQuran || selectedSurah != null) && !isDownloading,
                         colors = ButtonDefaults.buttonColors(containerColor = islamicGreen)
                     ) {
-                        Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isArabic) "تنزيل" else "Download",
-                            fontFamily = if (isArabic) scheherazadeFont else null
-                        )
+                        if (isDownloading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isArabic) "جاري التنزيل..." else "Starting...",
+                                fontFamily = if (isArabic) scheherazadeFont else null
+                            )
+                        } else {
+                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (downloadFullQuran) {
+                                    if (isArabic) "تنزيل الكل" else "Download All"
+                                } else {
+                                    if (isArabic) "تنزيل" else "Download"
+                                },
+                                fontFamily = if (isArabic) scheherazadeFont else null
+                            )
+                        }
                     }
                 }
             }

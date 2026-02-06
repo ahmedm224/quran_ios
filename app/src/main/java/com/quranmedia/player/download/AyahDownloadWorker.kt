@@ -155,29 +155,68 @@ class AyahDownloadWorker @AssistedInject constructor(
     }
 
     private suspend fun downloadAyahFile(url: String, destFile: File): Boolean {
-        return try {
-            val request = Request.Builder().url(url).build()
-            val response = okHttpClient.newCall(request).execute()
+        var retryCount = 0
+        val maxRetries = 5
+        var backoffMs = 1000L  // Start with 1 second
 
-            if (!response.isSuccessful) {
-                Timber.e("Download failed with code: ${response.code} for $url")
-                return false
-            }
+        while (retryCount < maxRetries) {
+            try {
+                val request = Request.Builder().url(url).build()
+                val response = okHttpClient.newCall(request).execute()
 
-            val body = response.body ?: return false
+                when {
+                    response.isSuccessful -> {
+                        val body = response.body
+                        if (body == null) {
+                            response.close()
+                            return false
+                        }
 
-            destFile.parentFile?.mkdirs()
-            body.byteStream().use { input ->
-                FileOutputStream(destFile).use { output ->
-                    input.copyTo(output)
+                        destFile.parentFile?.mkdirs()
+                        body.byteStream().use { input ->
+                            FileOutputStream(destFile).use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                        response.close()
+
+                        // Small delay to avoid rate limiting (50ms between requests)
+                        kotlinx.coroutines.delay(50)
+                        return true
+                    }
+                    response.code == 429 -> {
+                        // Rate limited - get retry-after header or use exponential backoff
+                        val retryAfter = response.header("retry-after")?.toLongOrNull()
+                        val waitTime = if (retryAfter != null) {
+                            retryAfter * 1000  // Convert seconds to ms
+                        } else {
+                            backoffMs
+                        }
+                        response.close()
+
+                        Timber.w("Rate limited (429), waiting ${waitTime}ms before retry ${retryCount + 1}/$maxRetries")
+                        kotlinx.coroutines.delay(waitTime)
+                        backoffMs = (backoffMs * 2).coerceAtMost(60000)  // Max 60 seconds
+                        retryCount++
+                    }
+                    else -> {
+                        Timber.e("Download failed with code: ${response.code} for $url")
+                        response.close()
+                        return false
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error downloading ayah file: $url")
+                retryCount++
+                if (retryCount < maxRetries) {
+                    kotlinx.coroutines.delay(backoffMs)
+                    backoffMs = (backoffMs * 2).coerceAtMost(60000)
                 }
             }
-
-            true
-        } catch (e: Exception) {
-            Timber.e(e, "Error downloading ayah file: $url")
-            false
         }
+
+        Timber.e("Max retries exceeded for $url")
+        return false
     }
 
     private suspend fun markAsFailed(taskId: String, errorMessage: String?) {

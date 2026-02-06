@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(xargs cat:*)",
+      "Bash(~/.gradle/wrapper/dists/gradle-9.1.0-all/7wzd0jkjit61aq2p43wpjgij9/gradle-9.1.0/bin/gradle:*)",
+      "WebFetch(domain:tanzil.net)",
+      "Bash(curl -L -o \"D:\\\\Dev\\\\Apps\\\\quran_media_ios\\\\app\\\\src\\\\main\\\\assets\\\\quran_simple.txt\" \"https://tanzil.net/pub/download/download.php?quranType=simple&outType=txt-2\")",
+      "WebSearch",
+      "WebFetch(domain:platform.openai.com)",
+      "Bash(.\\\\gradlew assembleDebug:*)",
+      "Bash(gradlew.bat assembleDebug:*)",
+      "WebFetch(domain:developers.deepgram.com)",
+      "Bash(copy \"D:\\\\Dev\\\\Apps\\\\quran_media_ios\\\\quran_data\\\\quran-md\\\\quran_words_all.json\" \"D:\\\\Dev\\\\Apps\\\\quran_media_ios\\\\app\\\\src\\\\main\\\\assets\\\\quran_words_all.json\")",
+      "Bash(cmd /c copy:*)",
+      "Bash(cmd /c dir \"D:\\\\Dev\\\\Apps\\\\quran_media_ios\\\\app\\\\src\\\\main\\\\assets\\\\quran_words_all.json\")",
+      "Bash(powershell -Command:*)",
+      "WebFetch(domain:cdn.jsdelivr.net)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:corpus.quran.com)",
+      "WebFetch(domain:api.qurancdn.com)",
+      "WebFetch(domain:api-docs.quran.foundation)",
+      "WebFetch(domain:api.quran-tafseer.com)",
+      "WebFetch(domain:alquran.cloud)",
+      "WebFetch(domain:api-docs.quran.com)",
+      "WebFetch(domain:api.quran.com)",
+      "WebFetch(domain:alfurqan.online)",
+      "Bash(find:*)",
+      "Bash(copy:*)",
+      "WebFetch(domain:central.sonatype.com)",
+      "Bash(\"C:\\\\Users\\\\aali_\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" -s adb-RFAX11V4MPT-SGpZTm._adb-tls-connect._tcp install -r \"D:\\\\Dev\\\\Apps\\\\alfurqan_app\\\\wear\\\\release\\\\wear-release.apk\")",
+      "Bash(C:/Users/aali_/AppData/Local/Android/Sdk/platform-tools/adb.exe:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

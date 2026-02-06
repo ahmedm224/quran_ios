@@ -12,6 +12,10 @@ import com.quranmedia.player.domain.model.Ayah
 import com.quranmedia.player.domain.model.Reciter
 import com.quranmedia.player.domain.model.Surah
 import com.quranmedia.player.domain.repository.QuranRepository
+import com.quranmedia.player.data.repository.TafseerRepository
+import com.quranmedia.player.domain.model.AvailableTafseers
+import com.quranmedia.player.presentation.screens.reader.components.TafseerModalState
+import com.quranmedia.player.presentation.screens.reader.components.surahNamesArabic
 import com.quranmedia.player.media.controller.PlaybackController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -70,7 +74,10 @@ class QuranReaderViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val downloadManager: com.quranmedia.player.download.DownloadManager,
     private val trackerRepository: com.quranmedia.player.data.repository.TrackerRepository,
-    private val prayerTimesRepository: com.quranmedia.player.domain.repository.PrayerTimesRepository
+    private val prayerTimesRepository: com.quranmedia.player.domain.repository.PrayerTimesRepository,
+    val qcfAssetLoader: com.quranmedia.player.data.source.QCFAssetLoader,
+    private val fontDownloadManager: com.quranmedia.player.data.source.QCFFontDownloadManager,
+    private val tafseerRepository: TafseerRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(QuranReaderState())
@@ -84,6 +91,10 @@ class QuranReaderViewModel @Inject constructor(
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
     private var searchJob: Job? = null
+
+    // Tafseer state
+    private val _tafseerState = MutableStateFlow(TafseerModalState())
+    val tafseerState: StateFlow<TafseerModalState> = _tafseerState.asStateFlow()
 
     // Page tracking for daily progress
     private val pageViewStartTime = mutableMapOf<Int, Long>()
@@ -102,6 +113,24 @@ class QuranReaderViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = playbackController.playbackState.value
         )
+
+    /**
+     * Check if QCF fonts are available for the requested mode.
+     * Returns true if at least one font pack is downloaded.
+     */
+    fun areQCFFontsAvailable(): Boolean {
+        return fontDownloadManager.isV2Downloaded() || fontDownloadManager.isV4Downloaded()
+    }
+
+    /**
+     * Check if V2 (plain) fonts are downloaded
+     */
+    fun isV2FontsDownloaded(): Boolean = fontDownloadManager.isV2Downloaded()
+
+    /**
+     * Check if V4 (tajweed) fonts are downloaded
+     */
+    fun isV4FontsDownloaded(): Boolean = fontDownloadManager.isV4Downloaded()
 
     private var _totalPages: Int = 604
 
@@ -894,5 +923,72 @@ class QuranReaderViewModel @Inject constructor(
      */
     fun getRecitationPresets(): kotlinx.coroutines.flow.Flow<List<com.quranmedia.player.domain.model.RecitationPreset>> {
         return settingsRepository.getRecitationPresets()
+    }
+
+    // ==================== Tafseer Functions ====================
+
+    /**
+     * Show tafseer modal for the selected ayah.
+     * Loads available tafseers and their content.
+     */
+    fun showTafseer(ayah: Ayah) {
+        viewModelScope.launch {
+            // Show modal immediately with loading state
+            _tafseerState.value = TafseerModalState(
+                isVisible = true,
+                surah = ayah.surahNumber,
+                ayah = ayah.ayahNumber,
+                surahName = surahNamesArabic[ayah.surahNumber] ?: "",
+                ayahText = ayah.textArabic,
+                isLoading = true
+            )
+
+            try {
+                // Get available tafseers for this ayah
+                val tafseers = tafseerRepository.getAllTafseersForAyah(ayah.surahNumber, ayah.ayahNumber)
+
+                if (tafseers.isEmpty()) {
+                    _tafseerState.value = _tafseerState.value.copy(
+                        isLoading = false,
+                        availableTafseers = emptyList()
+                    )
+                } else {
+                    // Sort tafseers based on app language
+                    val appLanguage = settings.value.appLanguage.name.lowercase()
+                    val sortedIds = AvailableTafseers.getSortedByLanguage(appLanguage).map { it.id }
+                    val sortedTafseers = tafseers.sortedBy { (tafseerInfo, _) ->
+                        sortedIds.indexOf(tafseerInfo.id).takeIf { it >= 0 } ?: Int.MAX_VALUE
+                    }
+
+                    _tafseerState.value = _tafseerState.value.copy(
+                        isLoading = false,
+                        availableTafseers = sortedTafseers,
+                        selectedTafseerId = sortedTafseers.firstOrNull()?.first?.id
+                    )
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error loading tafseer")
+                _tafseerState.value = _tafseerState.value.copy(
+                    isLoading = false,
+                    error = "Error loading tafseer"
+                )
+            }
+        }
+    }
+
+    /**
+     * Dismiss the tafseer modal.
+     */
+    fun dismissTafseer() {
+        _tafseerState.value = TafseerModalState()
+    }
+
+    /**
+     * Select a different tafseer from the available options.
+     */
+    fun selectTafseer(tafseerId: String) {
+        _tafseerState.value = _tafseerState.value.copy(
+            selectedTafseerId = tafseerId
+        )
     }
 }

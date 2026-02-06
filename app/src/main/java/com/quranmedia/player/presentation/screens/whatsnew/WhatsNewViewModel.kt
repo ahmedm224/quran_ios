@@ -12,6 +12,7 @@ import com.quranmedia.player.data.location.LocationHelper
 import com.quranmedia.player.data.repository.AppLanguage
 import com.quranmedia.player.data.repository.PrayerNotificationMode
 import com.quranmedia.player.data.repository.SettingsRepository
+import com.quranmedia.player.data.source.QCFFontDownloadManager
 import com.quranmedia.player.domain.repository.PrayerTimesRepository
 import com.quranmedia.player.domain.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -37,14 +38,55 @@ class WhatsNewViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settingsRepository: SettingsRepository,
     private val locationHelper: LocationHelper,
-    private val prayerTimesRepository: PrayerTimesRepository
+    private val prayerTimesRepository: PrayerTimesRepository,
+    private val fontDownloadManager: QCFFontDownloadManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(WhatsNewUiState())
     val uiState: StateFlow<WhatsNewUiState> = _uiState.asStateFlow()
 
+    // Expose font download progress
+    val v2DownloadProgress = fontDownloadManager.v2DownloadProgress
+    val v4DownloadProgress = fontDownloadManager.v4DownloadProgress
+
     init {
         loadInitialState()
+    }
+
+    fun toggleLanguage() {
+        val newLanguage = if (_uiState.value.language == AppLanguage.ARABIC) {
+            AppLanguage.ENGLISH
+        } else {
+            AppLanguage.ARABIC
+        }
+        _uiState.value = _uiState.value.copy(language = newLanguage)
+    }
+
+    fun isV2Downloaded(): Boolean = fontDownloadManager.isV2Downloaded()
+    fun isV4Downloaded(): Boolean = fontDownloadManager.isV4Downloaded()
+
+    fun downloadV2Fonts() {
+        viewModelScope.launch {
+            val success = fontDownloadManager.downloadV2Fonts()
+            if (success) {
+                // Enable QCF mode with plain (V2) fonts
+                settingsRepository.setUseQCFFont(true)
+                settingsRepository.setQCFTajweedMode(false)
+                Timber.d("V2 fonts downloaded - QCF mode enabled with plain fonts")
+            }
+        }
+    }
+
+    fun downloadV4Fonts() {
+        viewModelScope.launch {
+            val success = fontDownloadManager.downloadV4Fonts()
+            if (success) {
+                // Enable QCF mode with Tajweed (V4) fonts
+                settingsRepository.setUseQCFFont(true)
+                settingsRepository.setQCFTajweedMode(true)
+                Timber.d("V4 fonts downloaded - QCF mode enabled with Tajweed fonts")
+            }
+        }
     }
 
     private fun loadInitialState() {

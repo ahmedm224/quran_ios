@@ -43,6 +43,8 @@ class TrackerViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(TrackerUiState())
     val uiState: StateFlow<TrackerUiState> = _uiState.asStateFlow()
 
+    val settings = settingsRepository.settings
+
     init {
         loadTodayData()
         observeActiveGoal()

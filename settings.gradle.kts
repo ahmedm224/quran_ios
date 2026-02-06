@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "QuranMediaPlayer"
 include(":app")
+include(":wear")

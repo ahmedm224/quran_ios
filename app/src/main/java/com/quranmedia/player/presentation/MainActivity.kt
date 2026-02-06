@@ -43,13 +43,13 @@ class MainActivity : ComponentActivity() {
 fun QuranMediaApp(settingsRepository: SettingsRepository) {
     val navController = androidx.navigation.compose.rememberNavController()
 
-    // Check if What's New screen should be shown
-    val shouldShowWhatsNew = remember {
+    // Check if Onboarding screen should be shown (first install or not completed)
+    val shouldShowOnboarding = remember {
         settingsRepository.shouldShowWhatsNew(BuildConfig.VERSION_CODE)
     }
 
     com.quranmedia.player.presentation.navigation.QuranNavGraph(
         navController = navController,
-        shouldShowWhatsNew = shouldShowWhatsNew
+        shouldShowOnboarding = shouldShowOnboarding
     )
 }

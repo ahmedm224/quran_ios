@@ -14,11 +14,10 @@ import androidx.compose.ui.window.Dialog
 import com.quranmedia.player.data.repository.AppLanguage
 import com.quranmedia.player.domain.model.GoalType
 import com.quranmedia.player.presentation.screens.reader.components.scheherazadeFont
+import com.quranmedia.player.presentation.screens.reader.components.islamicGreen
+import com.quranmedia.player.presentation.screens.reader.components.darkGreen
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-
-private val islamicGreen = Color(0xFF2E7D32)
-private val darkGreen = Color(0xFF1B5E20)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

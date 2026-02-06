@@ -16,6 +16,7 @@ import com.quranmedia.player.data.database.dao.SurahDao
 import com.quranmedia.player.data.database.dao.DailyActivityDao
 import com.quranmedia.player.data.database.dao.QuranProgressDao
 import com.quranmedia.player.data.database.dao.KhatmahGoalDao
+import com.quranmedia.player.data.database.dao.TafseerDao
 import com.quranmedia.player.data.database.entity.AthkarCategoryEntity
 import com.quranmedia.player.data.database.entity.AyahEntity
 import com.quranmedia.player.data.database.entity.AyahIndexEntity
@@ -32,6 +33,8 @@ import com.quranmedia.player.data.database.entity.UserLocationEntity
 import com.quranmedia.player.data.database.entity.DailyActivityEntity
 import com.quranmedia.player.data.database.entity.QuranProgressEntity
 import com.quranmedia.player.data.database.entity.KhatmahGoalEntity
+import com.quranmedia.player.data.database.entity.TafseerDownloadEntity
+import com.quranmedia.player.data.database.entity.TafseerContentEntity
 
 @Database(
     entities = [
@@ -54,9 +57,12 @@ import com.quranmedia.player.data.database.entity.KhatmahGoalEntity
         // Daily Tracker entities
         DailyActivityEntity::class,
         QuranProgressEntity::class,
-        KhatmahGoalEntity::class
+        KhatmahGoalEntity::class,
+        // Tafseer entities
+        TafseerDownloadEntity::class,
+        TafseerContentEntity::class
     ],
-    version = 7,  // Incremented for Tajweed text feature
+    version = 9,  // Incremented for Prayer Times offline caching improvements
     exportSchema = true
 )
 abstract class QuranDatabase : RoomDatabase() {
@@ -74,4 +80,5 @@ abstract class QuranDatabase : RoomDatabase() {
     abstract fun dailyActivityDao(): DailyActivityDao
     abstract fun quranProgressDao(): QuranProgressDao
     abstract fun khatmahGoalDao(): KhatmahGoalDao
+    abstract fun tafseerDao(): TafseerDao
 }

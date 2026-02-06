@@ -30,6 +30,15 @@ class AthanRepository @Inject constructor(
     private val downloadedAthanDao: DownloadedAthanDao,
     private val okHttpClient: OkHttpClient
 ) {
+    companion object {
+        // Default embedded athan ID and asset path
+        const val DEFAULT_ATHAN_ID = "default_abdulbasit"
+        private const val DEFAULT_ATHAN_ASSET = "Athan_1a014366658c.mp3"
+        const val DEFAULT_ATHAN_NAME = "Abdulbasit Abdulsamad"
+        const val DEFAULT_ATHAN_MUEZZIN = "Abdulbasit Abdulsamad"
+        const val DEFAULT_ATHAN_LOCATION = "Egypt"
+    }
+
     // Directory for storing downloaded athans
     private val athansDir: File by lazy {
         File(context.filesDir, "athans").apply {
@@ -39,6 +48,59 @@ class AthanRepository @Inject constructor(
 
     // Cache for athans list from API
     private var cachedAthans: List<Athan>? = null
+
+    /**
+     * Initialize default athan on first run - copies embedded asset to downloads folder
+     */
+    suspend fun ensureDefaultAthanAvailable(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            // Check if default athan is already available
+            if (downloadedAthanDao.isAthanDownloaded(DEFAULT_ATHAN_ID)) {
+                val localPath = downloadedAthanDao.getAthanLocalPath(DEFAULT_ATHAN_ID)
+                if (localPath != null && File(localPath).exists()) {
+                    Timber.d("Default athan already available: $localPath")
+                    return@withContext true
+                }
+            }
+
+            // Check if asset exists
+            val assetExists = try {
+                context.assets.open(DEFAULT_ATHAN_ASSET).use { true }
+            } catch (e: Exception) {
+                Timber.w("Default athan asset not found: $DEFAULT_ATHAN_ASSET")
+                false
+            }
+
+            if (!assetExists) {
+                return@withContext false
+            }
+
+            // Copy asset to downloads folder
+            val outputFile = File(athansDir, "${DEFAULT_ATHAN_ID}.mp3")
+            context.assets.open(DEFAULT_ATHAN_ASSET).use { input ->
+                FileOutputStream(outputFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            // Register in database
+            val entity = DownloadedAthanEntity(
+                id = DEFAULT_ATHAN_ID,
+                name = DEFAULT_ATHAN_NAME,
+                muezzin = DEFAULT_ATHAN_MUEZZIN,
+                location = DEFAULT_ATHAN_LOCATION,
+                localPath = outputFile.absolutePath,
+                fileSize = outputFile.length()
+            )
+            downloadedAthanDao.insertDownloadedAthan(entity)
+
+            Timber.d("Default athan copied to: ${outputFile.absolutePath}")
+            true
+        } catch (e: Exception) {
+            Timber.e(e, "Error setting up default athan")
+            false
+        }
+    }
 
     /**
      * Get list of all available athans from API

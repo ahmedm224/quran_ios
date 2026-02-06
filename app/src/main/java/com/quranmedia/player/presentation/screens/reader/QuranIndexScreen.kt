@@ -19,6 +19,14 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.ui.focus.FocusRequester
@@ -49,6 +57,7 @@ import com.quranmedia.player.presentation.screens.reader.components.islamicGreen
 import com.quranmedia.player.presentation.screens.reader.components.scheherazadeFont
 import com.quranmedia.player.presentation.util.Strings
 import com.quranmedia.player.presentation.util.layoutDirection
+import com.quranmedia.player.domain.util.ArabicNumeralUtils
 import kotlinx.coroutines.launch
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 
@@ -58,11 +67,19 @@ fun QuranIndexScreen(
     viewModel: QuranIndexViewModel = hiltViewModel(),
     onBack: () -> Unit,
     onNavigateToPage: (Int) -> Unit,
-    onNavigateToPageWithHighlight: (page: Int, surahNumber: Int, ayahNumber: Int) -> Unit = { _, _, _ -> }
+    onNavigateToPageWithHighlight: (page: Int, surahNumber: Int, ayahNumber: Int) -> Unit = { _, _, _ -> },
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToPrayerTimes: () -> Unit = {},
+    onNavigateToAthkar: () -> Unit = {},
+    onNavigateToTracker: () -> Unit = {},
+    onNavigateToDownloads: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {},
+    onNavigateToImsakiya: () -> Unit = {}  // TODO: Remove after Ramadan
 ) {
     val state by viewModel.state.collectAsState()
     val settings by viewModel.settings.collectAsState()
     val language = settings.appLanguage
+    val useIndoArabic = language == AppLanguage.ARABIC && settings.useIndoArabicNumerals
     var pageInput by remember { mutableStateOf("") }
     var pageInputError by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -174,6 +191,185 @@ fun QuranIndexScreen(
                                     contentDescription = if (language == AppLanguage.ARABIC) "بحث" else "Search",
                                     tint = Color.White
                                 )
+                            }
+                            // 3-dot context menu
+                            var showContextMenu by remember { mutableStateOf(false) }
+                            Box {
+                                IconButton(onClick = { showContextMenu = true }) {
+                                    Icon(
+                                        Icons.Default.MoreVert,
+                                        contentDescription = "Menu",
+                                        tint = Color.White
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = showContextMenu,
+                                    onDismissRequest = { showContextMenu = false },
+                                    modifier = Modifier.background(Color.White)
+                                ) {
+                                    // Settings
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    Icons.Default.Settings,
+                                                    contentDescription = null,
+                                                    tint = islamicGreen,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text(
+                                                    text = Strings.settings.get(language),
+                                                    fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                                    color = darkGreen
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            showContextMenu = false
+                                            onNavigateToSettings()
+                                        }
+                                    )
+                                    // Prayer Times
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    Icons.Default.Schedule,
+                                                    contentDescription = null,
+                                                    tint = islamicGreen,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text(
+                                                    text = if (language == AppLanguage.ARABIC) "مواقيت الصلاة" else "Prayer Times",
+                                                    fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                                    color = darkGreen
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            showContextMenu = false
+                                            onNavigateToPrayerTimes()
+                                        }
+                                    )
+                                    // Athkar
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    Icons.Default.WbSunny,
+                                                    contentDescription = null,
+                                                    tint = islamicGreen,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text(
+                                                    text = if (language == AppLanguage.ARABIC) "الأذكار" else "Athkar",
+                                                    fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                                    color = darkGreen
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            showContextMenu = false
+                                            onNavigateToAthkar()
+                                        }
+                                    )
+                                    // Daily Tracker
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    Icons.Default.CheckCircle,
+                                                    contentDescription = null,
+                                                    tint = islamicGreen,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text(
+                                                    text = if (language == AppLanguage.ARABIC) "المتابعة اليومية" else "Daily Tracker",
+                                                    fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                                    color = darkGreen
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            showContextMenu = false
+                                            onNavigateToTracker()
+                                        }
+                                    )
+                                    // Downloads
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    Icons.Default.CloudDownload,
+                                                    contentDescription = null,
+                                                    tint = islamicGreen,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text(
+                                                    text = Strings.downloads.get(language),
+                                                    fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                                    color = darkGreen
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            showContextMenu = false
+                                            onNavigateToDownloads()
+                                        }
+                                    )
+                                    // Ramadan Imsakiya (TODO: Remove after Ramadan)
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    Icons.Default.NightsStay,
+                                                    contentDescription = null,
+                                                    tint = islamicGreen,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text(
+                                                    text = if (language == AppLanguage.ARABIC) "إمساكية رمضان" else "Ramadan Imsakiya",
+                                                    fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                                    color = darkGreen
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            showContextMenu = false
+                                            onNavigateToImsakiya()
+                                        }
+                                    )
+                                    // About
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    Icons.Default.Info,
+                                                    contentDescription = null,
+                                                    tint = islamicGreen,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text(
+                                                    text = Strings.about.get(language),
+                                                    fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                                    color = darkGreen
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            showContextMenu = false
+                                            onNavigateToAbout()
+                                        }
+                                    )
+                                }
                             }
                         }
                     },
@@ -308,7 +504,8 @@ fun QuranIndexScreen(
                                     },
                                     onJuzClick = { juzPage ->
                                         onNavigateToPage(juzPage)
-                                    }
+                                    },
+                                    useIndoArabic = useIndoArabic
                                 )
                             }
                         }
@@ -318,7 +515,8 @@ fun QuranIndexScreen(
                                 hizbQuartersInfo = state.hizbQuartersInfo,
                                 surahs = state.surahs,
                                 language = language,
-                                onNavigateToPageWithHighlight = onNavigateToPageWithHighlight
+                                onNavigateToPageWithHighlight = onNavigateToPageWithHighlight,
+                                useIndoArabic = useIndoArabic
                             )
                         }
                         2 -> {
@@ -332,7 +530,8 @@ fun QuranIndexScreen(
                                 },
                                 onDeleteBookmark = { bookmarkId ->
                                     viewModel.deleteReadingBookmark(bookmarkId)
-                                }
+                                },
+                                useIndoArabic = useIndoArabic
                             )
                         }
                     }
@@ -577,7 +776,8 @@ private fun CascadedSurahJuzList(
     juzStartInfo: List<JuzStartInfo>,
     language: AppLanguage,
     onSurahClick: (Int) -> Unit,
-    onJuzClick: (Int) -> Unit
+    onJuzClick: (Int) -> Unit,
+    useIndoArabic: Boolean = false
 ) {
     // Juz names (Arabic only - these are traditional names)
     val juzNames = mapOf(
@@ -627,7 +827,8 @@ private fun CascadedSurahJuzList(
                         juzName = juzNames[item.juzInfo.juz] ?: "",
                         startPage = item.juzInfo.page,
                         language = language,
-                        onClick = { onJuzClick(item.juzInfo.page) }
+                        onClick = { onJuzClick(item.juzInfo.page) },
+                        useIndoArabic = useIndoArabic
                     )
                 }
             } else if (!item.isJuz && item.surahWithPage != null) {
@@ -643,7 +844,8 @@ private fun CascadedSurahJuzList(
                         revelationType = surah.revelationType.name,
                         startPage = startPage,
                         language = language,
-                        onClick = { onSurahClick(startPage) }
+                        onClick = { onSurahClick(startPage) },
+                        useIndoArabic = useIndoArabic
                     )
                 }
             }
@@ -657,8 +859,11 @@ private fun JuzDivider(
     juzName: String,
     startPage: Int,
     language: AppLanguage,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    useIndoArabic: Boolean = false
 ) {
+    val formattedJuzNumber = ArabicNumeralUtils.formatNumber(juzNumber, useIndoArabic)
+    val formattedPage = ArabicNumeralUtils.formatNumber(startPage, useIndoArabic)
     Card(
         onClick = onClick,
         modifier = Modifier
@@ -691,7 +896,7 @@ private fun JuzDivider(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (language == AppLanguage.ARABIC) "الجزء $juzNumber" else "Juz $juzNumber",
+                        text = if (language == AppLanguage.ARABIC) "الجزء $formattedJuzNumber" else "Juz $juzNumber",
                         fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
@@ -712,7 +917,7 @@ private fun JuzDivider(
 
             // Page number
             Text(
-                text = if (language == AppLanguage.ARABIC) "ص $startPage" else "p. $startPage",
+                text = if (language == AppLanguage.ARABIC) "ص $formattedPage" else "p. $startPage",
                 fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
                 fontSize = 14.sp,
                 color = Color.Gray
@@ -730,7 +935,8 @@ private fun SurahListItem(
     revelationType: String,
     startPage: Int,
     language: AppLanguage,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    useIndoArabic: Boolean = false
 ) {
     Card(
         onClick = onClick,
@@ -756,7 +962,7 @@ private fun SurahListItem(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = surahNumber.toString(),
+                    text = ArabicNumeralUtils.formatNumber(surahNumber, useIndoArabic),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = darkGreen
@@ -785,7 +991,7 @@ private fun SurahListItem(
                 }
 
                 Text(
-                    text = "$ayahCount $ayahLabel • $typeLabel",
+                    text = "${ArabicNumeralUtils.formatNumber(ayahCount, useIndoArabic)} $ayahLabel • $typeLabel",
                     fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
                     fontSize = 12.sp,
                     color = Color.Gray
@@ -803,7 +1009,7 @@ private fun SurahListItem(
                     color = Color.Gray
                 )
                 Text(
-                    text = startPage.toString(),
+                    text = ArabicNumeralUtils.formatNumber(startPage, useIndoArabic),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = islamicGreen
@@ -818,7 +1024,8 @@ private fun JuzDetailTab(
     hizbQuartersInfo: List<HizbQuarterInfo>,
     surahs: List<Surah>,
     language: AppLanguage,
-    onNavigateToPageWithHighlight: (page: Int, surahNumber: Int, ayahNumber: Int) -> Unit
+    onNavigateToPageWithHighlight: (page: Int, surahNumber: Int, ayahNumber: Int) -> Unit,
+    useIndoArabic: Boolean = false
 ) {
     // Create a map of surah numbers to names
     val surahNames = remember(surahs) {
@@ -860,7 +1067,8 @@ private fun JuzDetailTab(
                                     quarterInfo.surahNumber,
                                     quarterInfo.ayahNumber
                                 )
-                            }
+                            },
+                            useIndoArabic = useIndoArabic
                         )
                     }
                 }
@@ -871,7 +1079,8 @@ private fun JuzDetailTab(
                     item(key = "hizb_header_$hizb") {
                         HizbHeaderItem(
                             hizbNumber = hizb,
-                            language = language
+                            language = language,
+                            useIndoArabic = useIndoArabic
                         )
                     }
                 }
@@ -898,7 +1107,8 @@ private fun JuzDetailTab(
                                 quarterInfo.surahNumber,
                                 quarterInfo.ayahNumber
                             )
-                        }
+                        },
+                        useIndoArabic = useIndoArabic
                     )
                 }
             }
@@ -910,8 +1120,10 @@ private fun JuzDetailTab(
 private fun JuzHeaderItem(
     juzNumber: Int,
     language: AppLanguage,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    useIndoArabic: Boolean = false
 ) {
+    val formattedNumber = ArabicNumeralUtils.formatNumber(juzNumber, useIndoArabic)
     Card(
         onClick = onClick,
         modifier = Modifier
@@ -930,7 +1142,7 @@ private fun JuzHeaderItem(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = if (language == AppLanguage.ARABIC) "الجزء $juzNumber" else "Juz $juzNumber",
+                text = if (language == AppLanguage.ARABIC) "الجزء $formattedNumber" else "Juz $juzNumber",
                 fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
@@ -943,8 +1155,10 @@ private fun JuzHeaderItem(
 @Composable
 private fun HizbHeaderItem(
     hizbNumber: Int,
-    language: AppLanguage
+    language: AppLanguage,
+    useIndoArabic: Boolean = false
 ) {
+    val formattedNumber = ArabicNumeralUtils.formatNumber(hizbNumber, useIndoArabic)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -957,7 +1171,7 @@ private fun HizbHeaderItem(
             color = goldAccent.copy(alpha = 0.5f)
         )
         Text(
-            text = if (language == AppLanguage.ARABIC) "  الحزب $hizbNumber  " else "  Hizb $hizbNumber  ",
+            text = if (language == AppLanguage.ARABIC) "  الحزب $formattedNumber  " else "  Hizb $hizbNumber  ",
             fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
@@ -1030,8 +1244,11 @@ private fun HizbQuarterItem(
     page: Int,
     ayahText: String,
     language: AppLanguage,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    useIndoArabic: Boolean = false
 ) {
+    val formattedAyah = ArabicNumeralUtils.formatNumber(ayahNumber, useIndoArabic)
+    val formattedPage = ArabicNumeralUtils.formatNumber(page, useIndoArabic)
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -1067,7 +1284,7 @@ private fun HizbQuarterItem(
                         color = darkGreen
                     )
                     Text(
-                        text = if (language == AppLanguage.ARABIC) "آية $ayahNumber" else "Ayah $ayahNumber",
+                        text = if (language == AppLanguage.ARABIC) "آية $formattedAyah" else "Ayah $ayahNumber",
                         fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
                         fontSize = 12.sp,
                         color = Color.Gray
@@ -1098,7 +1315,7 @@ private fun HizbQuarterItem(
                     color = Color.Gray
                 )
                 Text(
-                    text = page.toString(),
+                    text = formattedPage,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = islamicGreen
@@ -1114,7 +1331,8 @@ private fun ReadingBookmarksTab(
     language: AppLanguage,
     dailyTargetPages: Float?,
     onBookmarkClick: (IndexReadingBookmark) -> Unit,
-    onDeleteBookmark: (String) -> Unit
+    onDeleteBookmark: (String) -> Unit,
+    useIndoArabic: Boolean = false
 ) {
     if (bookmarks.isEmpty()) {
         // Empty state
@@ -1164,7 +1382,8 @@ private fun ReadingBookmarksTab(
                     language = language,
                     dailyTargetPages = dailyTargetPages,
                     onClick = { onBookmarkClick(bookmark) },
-                    onDelete = { onDeleteBookmark(bookmark.id) }
+                    onDelete = { onDeleteBookmark(bookmark.id) },
+                    useIndoArabic = useIndoArabic
                 )
             }
         }
@@ -1177,8 +1396,10 @@ private fun BookmarkListItem(
     language: AppLanguage,
     dailyTargetPages: Float?,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    useIndoArabic: Boolean = false
 ) {
+    val formattedPageNumber = ArabicNumeralUtils.formatNumber(bookmark.pageNumber, useIndoArabic)
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -1213,7 +1434,7 @@ private fun BookmarkListItem(
             // Bookmark info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (language == AppLanguage.ARABIC) "صفحة ${bookmark.pageNumber}" else "Page ${bookmark.pageNumber}",
+                    text = if (language == AppLanguage.ARABIC) "صفحة $formattedPageNumber" else "Page ${bookmark.pageNumber}",
                     fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
@@ -1235,6 +1456,9 @@ private fun BookmarkListItem(
                     // Calculate pages remaining from this bookmark
                     val pagesRemaining = 604 - bookmark.pageNumber
                     val daysNeeded = if (target > 0) (pagesRemaining / target).toInt() else 0
+                    val formattedTarget = ArabicNumeralUtils.formatNumber(String.format("%.0f", target).toInt(), useIndoArabic)
+                    val formattedRemaining = ArabicNumeralUtils.formatNumber(pagesRemaining, useIndoArabic)
+                    val formattedDays = ArabicNumeralUtils.formatNumber(daysNeeded, useIndoArabic)
 
                     // Daily target display
                     Row(
@@ -1249,7 +1473,7 @@ private fun BookmarkListItem(
                         )
                         Text(
                             text = if (language == AppLanguage.ARABIC)
-                                "الهدف اليومي: ${String.format("%.0f", target)} صفحة/يوم"
+                                "الهدف اليومي: $formattedTarget صفحة/يوم"
                             else
                                 "Daily target: ${String.format("%.0f", target)} pages/day",
                             fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
@@ -1262,7 +1486,7 @@ private fun BookmarkListItem(
                     // Pages remaining from this bookmark
                     Text(
                         text = if (language == AppLanguage.ARABIC)
-                            "المتبقي: $pagesRemaining صفحة (~$daysNeeded يوم بالهدف الحالي)"
+                            "المتبقي: $formattedRemaining صفحة (~$formattedDays يوم بالهدف الحالي)"
                         else
                             "Remaining: $pagesRemaining pages (~$daysNeeded days at current target)",
                         fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,

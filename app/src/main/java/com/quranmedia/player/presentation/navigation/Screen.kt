@@ -2,7 +2,7 @@ package com.quranmedia.player.presentation.navigation
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
-    object WhatsNew : Screen("whatsNew")
+    object Onboarding : Screen("onboarding")
     object Reciters : Screen("reciters")
     object Surahs : Screen("surahs")
     object Player : Screen("player/{reciterId}/{surahNumber}?resume={resume}&startAyah={startAyah}") {
@@ -12,7 +12,9 @@ sealed class Screen(val route: String) {
     object Bookmarks : Screen("bookmarks")
     object Downloads : Screen("downloads")
     object Search : Screen("search")
-    object Settings : Screen("settings")
+    object Settings : Screen("settings?tab={tab}") {
+        fun createRoute(tab: String = "reading") = "settings?tab=$tab"
+    }
     object About : Screen("about")
 
     // Quran Reader screens
@@ -42,4 +44,14 @@ sealed class Screen(val route: String) {
 
     // Daily Tracker screen
     object Tracker : Screen("tracker")
+
+    // Ramadan Imsakiya screen (TODO: Remove after Ramadan)
+    object Imsakiya : Screen("imsakiya")
+
+    // Recite (تسميع) screens - Full Mushaf experience for memorization review
+    object Recite : Screen("recite")  // Legacy - redirects to ReciteIndex
+    object ReciteIndex : Screen("reciteIndex")  // Same as QuranIndex but for recite flow
+    object ReciteReader : Screen("reciteReader?page={page}") {
+        fun createRoute(page: Int = 1) = "reciteReader?page=$page"
+    }
 }

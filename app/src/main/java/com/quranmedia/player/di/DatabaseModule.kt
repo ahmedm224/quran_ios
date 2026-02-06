@@ -19,6 +19,7 @@ import com.quranmedia.player.data.database.dao.SurahDao
 import com.quranmedia.player.data.database.dao.DailyActivityDao
 import com.quranmedia.player.data.database.dao.QuranProgressDao
 import com.quranmedia.player.data.database.dao.KhatmahGoalDao
+import com.quranmedia.player.data.database.dao.TafseerDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -38,6 +39,79 @@ object DatabaseModule {
         override fun migrate(database: SupportSQLiteDatabase) {
             // Add textTajweed column (nullable)
             database.execSQL("ALTER TABLE ayahs ADD COLUMN textTajweed TEXT")
+        }
+    }
+
+    /**
+     * Migration from version 8 to 9
+     * Updates prayer_times_cache table with asrMethod and hijriMonthNumber columns
+     * for proper offline caching
+     */
+    private val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Drop and recreate prayer_times_cache with new schema
+            // This is a cache table so data loss is acceptable
+            database.execSQL("DROP TABLE IF EXISTS prayer_times_cache")
+            database.execSQL("""
+                CREATE TABLE IF NOT EXISTS prayer_times_cache (
+                    date TEXT NOT NULL,
+                    latitude REAL NOT NULL,
+                    longitude REAL NOT NULL,
+                    fajr TEXT NOT NULL,
+                    sunrise TEXT NOT NULL,
+                    dhuhr TEXT NOT NULL,
+                    asr TEXT NOT NULL,
+                    maghrib TEXT NOT NULL,
+                    isha TEXT NOT NULL,
+                    locationName TEXT NOT NULL,
+                    calculationMethod INTEGER NOT NULL,
+                    asrMethod INTEGER NOT NULL DEFAULT 0,
+                    hijriDay INTEGER NOT NULL,
+                    hijriMonth TEXT NOT NULL,
+                    hijriMonthArabic TEXT NOT NULL,
+                    hijriYear INTEGER NOT NULL,
+                    hijriMonthNumber INTEGER NOT NULL DEFAULT 1,
+                    cachedAt INTEGER NOT NULL,
+                    PRIMARY KEY(date, latitude, longitude, calculationMethod, asrMethod)
+                )
+            """)
+        }
+    }
+
+    /**
+     * Migration from version 7 to 8
+     * Adds tafseer feature tables
+     */
+    private val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Create tafseer_downloads table
+            database.execSQL("""
+                CREATE TABLE IF NOT EXISTS tafseer_downloads (
+                    tafseerId TEXT NOT NULL PRIMARY KEY,
+                    nameArabic TEXT NOT NULL,
+                    nameEnglish TEXT NOT NULL,
+                    language TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    downloadedAt INTEGER NOT NULL,
+                    totalSizeBytes INTEGER NOT NULL,
+                    surahsDownloaded INTEGER NOT NULL DEFAULT 114
+                )
+            """)
+
+            // Create tafseer_content table
+            database.execSQL("""
+                CREATE TABLE IF NOT EXISTS tafseer_content (
+                    tafseerId TEXT NOT NULL,
+                    surah INTEGER NOT NULL,
+                    ayah INTEGER NOT NULL,
+                    text TEXT NOT NULL,
+                    PRIMARY KEY(tafseerId, surah, ayah)
+                )
+            """)
+
+            // Create indices for tafseer_content
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_tafseer_content_tafseerId ON tafseer_content(tafseerId)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_tafseer_content_surah_ayah ON tafseer_content(surah, ayah)")
         }
     }
 
@@ -102,7 +176,7 @@ object DatabaseModule {
             QuranDatabase::class.java,
             "quran_media_db"
         )
-            .addMigrations(MIGRATION_5_6, MIGRATION_6_7)
+            .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
             .fallbackToDestructiveMigration() // Fallback for other migrations
             .build()
     }
@@ -175,5 +249,10 @@ object DatabaseModule {
     @Provides
     fun provideKhatmahGoalDao(database: QuranDatabase): KhatmahGoalDao {
         return database.khatmahGoalDao()
+    }
+
+    @Provides
+    fun provideTafseerDao(database: QuranDatabase): TafseerDao {
+        return database.tafseerDao()
     }
 }

@@ -25,12 +25,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.quranmedia.player.data.database.entity.ReadingBookmarkEntity
 import com.quranmedia.player.data.repository.AppLanguage
 import com.quranmedia.player.presentation.screens.reader.components.scheherazadeFont
+import com.quranmedia.player.presentation.screens.reader.components.islamicGreen
+import com.quranmedia.player.presentation.screens.reader.components.darkGreen
+import com.quranmedia.player.presentation.screens.reader.components.creamBackground
+import com.quranmedia.player.presentation.screens.reader.components.coffeeBrown
 import com.quranmedia.player.presentation.util.layoutDirection
+import com.quranmedia.player.presentation.components.CommonOverflowMenu
+import com.quranmedia.player.domain.util.ArabicNumeralUtils
 import java.text.SimpleDateFormat
 import java.util.*
-
-private val islamicGreen = Color(0xFF2E7D32)
-private val creamBackground = Color(0xFFFAF8F3)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,15 +41,23 @@ fun BookmarksScreen(
     onNavigateBack: () -> Unit,
     onBookmarkClick: (String, Int, Int, Long) -> Unit, // reciterId, surahNumber, ayahNumber, positionMs
     onReadingBookmarkClick: ((Int) -> Unit)? = null, // pageNumber - navigate to reader
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToPrayerTimes: () -> Unit = {},
+    onNavigateToAthkar: () -> Unit = {},
+    onNavigateToTracker: () -> Unit = {},
+    onNavigateToDownloads: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {},
+    onNavigateToReading: () -> Unit = {},
+    onNavigateToImsakiya: () -> Unit = {},
     viewModel: BookmarksViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
     val language = state.appLanguage
     val isArabic = language == AppLanguage.ARABIC
+    val useIndoArabic = isArabic && state.useIndoArabicNumerals
     var showDeleteAllDialog by remember { mutableStateOf(false) }
     var bookmarkToDelete by remember { mutableStateOf<String?>(null) }
     var readingBookmarkToDelete by remember { mutableStateOf<String?>(null) }
-
     CompositionLocalProvider(LocalLayoutDirection provides language.layoutDirection()) {
         Scaffold(
             topBar = {
@@ -68,6 +79,18 @@ fun BookmarksScreen(
                                 Icon(Icons.Default.DeleteSweep, contentDescription = "Delete all", tint = Color.White)
                             }
                         }
+
+                        CommonOverflowMenu(
+                            language = language,
+                            onNavigateToSettings = onNavigateToSettings,
+                            onNavigateToReading = onNavigateToReading,
+                            onNavigateToPrayerTimes = onNavigateToPrayerTimes,
+                            onNavigateToImsakiya = onNavigateToImsakiya,
+                            onNavigateToAthkar = onNavigateToAthkar,
+                            onNavigateToTracker = onNavigateToTracker,
+                            onNavigateToDownloads = onNavigateToDownloads,
+                            onNavigateToAbout = onNavigateToAbout
+                        )
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = islamicGreen,
@@ -154,7 +177,8 @@ fun BookmarksScreen(
                                         bookmark = bookmark,
                                         isArabic = isArabic,
                                         onClick = { onReadingBookmarkClick?.invoke(bookmark.pageNumber) },
-                                        onDelete = { readingBookmarkToDelete = bookmark.id }
+                                        onDelete = { readingBookmarkToDelete = bookmark.id },
+                                        useIndoArabic = useIndoArabic
                                     )
                                 }
                             }
@@ -183,7 +207,8 @@ fun BookmarksScreen(
                                                 bookmarkWithDetails.bookmark.positionMs
                                             )
                                         },
-                                        onDelete = { bookmarkToDelete = bookmarkWithDetails.bookmark.id }
+                                        onDelete = { bookmarkToDelete = bookmarkWithDetails.bookmark.id },
+                                        useIndoArabic = useIndoArabic
                                     )
                                 }
                             }
@@ -272,7 +297,8 @@ private fun ReadingBookmarkCard(
     bookmark: ReadingBookmarkEntity,
     isArabic: Boolean,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    useIndoArabic: Boolean = false
 ) {
     val dateFormat = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
     val formattedDate = remember(bookmark.createdAt) {
@@ -305,7 +331,7 @@ private fun ReadingBookmarkCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isArabic) "صفحة ${bookmark.pageNumber}" else "Page ${bookmark.pageNumber}",
+                    text = if (isArabic) "صفحة ${ArabicNumeralUtils.formatNumber(bookmark.pageNumber, useIndoArabic)}" else "Page ${bookmark.pageNumber}",
                     fontFamily = if (isArabic) scheherazadeFont else null,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
@@ -342,7 +368,8 @@ private fun BookmarkCard(
     bookmarkWithDetails: BookmarkWithDetails,
     isArabic: Boolean,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    useIndoArabic: Boolean = false
 ) {
     val dateFormat = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
     val formattedDate = remember(bookmarkWithDetails.bookmark.createdAt) {
@@ -391,7 +418,7 @@ private fun BookmarkCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = if (isArabic) "آية ${bookmarkWithDetails.bookmark.ayahNumber}" else "Ayah ${bookmarkWithDetails.bookmark.ayahNumber}",
+                    text = if (isArabic) "آية ${ArabicNumeralUtils.formatNumber(bookmarkWithDetails.bookmark.ayahNumber, useIndoArabic)}" else "Ayah ${bookmarkWithDetails.bookmark.ayahNumber}",
                     fontFamily = if (isArabic) scheherazadeFont else null,
                     fontSize = 12.sp,
                     color = islamicGreen

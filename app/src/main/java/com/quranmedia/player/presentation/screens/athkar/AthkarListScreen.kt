@@ -32,13 +32,16 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.quranmedia.player.data.repository.AppLanguage
 import com.quranmedia.player.domain.model.Thikr
 import com.quranmedia.player.presentation.screens.reader.components.scheherazadeFont
+import com.quranmedia.player.presentation.screens.reader.components.creamBackground
+import com.quranmedia.player.presentation.screens.reader.components.lightGreen
+import com.quranmedia.player.presentation.screens.reader.components.islamicGreen
+import com.quranmedia.player.presentation.screens.reader.components.darkGreen
 import com.quranmedia.player.presentation.util.layoutDirection
 import kotlinx.coroutines.launch
+import com.quranmedia.player.presentation.components.CommonOverflowMenu
+import com.quranmedia.player.domain.util.ArabicNumeralUtils
 
-// Theme colors
-private val tealColor = Color(0xFF00897B)
-private val creamBackground = Color(0xFFFAF8F3)
-private val completedColor = Color(0xFF4CAF50)
+private val completedColor = lightGreen  // Use the shared light green for completed state
 
 /**
  * Cleans Arabic text by removing problematic Unicode characters that render as black circles.
@@ -107,6 +110,13 @@ private fun String.cleanArabicText(): String {
 fun AthkarListScreen(
     categoryId: String,
     onNavigateBack: () -> Unit,
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToPrayerTimes: () -> Unit = {},
+    onNavigateToTracker: () -> Unit = {},
+    onNavigateToDownloads: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {},
+    onNavigateToReading: () -> Unit = {},
+    onNavigateToImsakiya: () -> Unit = {},
     viewModel: AthkarListViewModel = hiltViewModel()
 ) {
     val athkar by viewModel.athkar.collectAsState()
@@ -156,9 +166,21 @@ fun AthkarListScreen(
                                 tint = Color.White
                             )
                         }
+
+                        CommonOverflowMenu(
+                            language = language,
+                            onNavigateToSettings = onNavigateToSettings,
+                            onNavigateToReading = onNavigateToReading,
+                            onNavigateToPrayerTimes = onNavigateToPrayerTimes,
+                            onNavigateToImsakiya = onNavigateToImsakiya,
+                            onNavigateToTracker = onNavigateToTracker,
+                            onNavigateToDownloads = onNavigateToDownloads,
+                            onNavigateToAbout = onNavigateToAbout,
+                            hideAthkar = true  // Hide Athkar since we're on this screen
+                        )
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = tealColor,
+                        containerColor = islamicGreen,
                         titleContentColor = Color.White,
                         navigationIconContentColor = Color.White
                     )
@@ -173,11 +195,12 @@ fun AthkarListScreen(
                         .padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = tealColor)
+                    CircularProgressIndicator(color = islamicGreen)
                 }
             } else {
                 // Check if all completed
                 val allCompleted = remainingCounts.values.all { it == 0 } && remainingCounts.isNotEmpty()
+                val useIndoArabic = language == AppLanguage.ARABIC && settings.useIndoArabicNumerals
 
                 Box(
                     modifier = Modifier
@@ -196,10 +219,10 @@ fun AthkarListScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "${pagerState.currentPage + 1} / ${athkar.size}",
+                                text = "${ArabicNumeralUtils.formatNumber(pagerState.currentPage + 1, useIndoArabic)} / ${ArabicNumeralUtils.formatNumber(athkar.size, useIndoArabic)}",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = tealColor
+                                color = islamicGreen
                             )
                         }
 
@@ -227,7 +250,8 @@ fun AthkarListScreen(
                                     remainingCount = remaining,
                                     language = language,
                                     onTap = { viewModel.decrementCount(thikr.id) },
-                                    onReset = { viewModel.resetCount(thikr.id, thikr.repeatCount) }
+                                    onReset = { viewModel.resetCount(thikr.id, thikr.repeatCount) },
+                                    useIndoArabic = useIndoArabic
                                 )
                             }
                         }
@@ -248,8 +272,8 @@ fun AthkarListScreen(
                                         .size(if (isSelected) 10.dp else 8.dp)
                                         .clip(CircleShape)
                                         .background(
-                                            if (isSelected) tealColor
-                                            else tealColor.copy(alpha = 0.3f)
+                                            if (isSelected) islamicGreen
+                                            else islamicGreen.copy(alpha = 0.3f)
                                         )
                                 )
                             }
@@ -322,7 +346,8 @@ private fun ThikrCard(
     remainingCount: Int,
     language: AppLanguage,
     onTap: () -> Unit,
-    onReset: () -> Unit
+    onReset: () -> Unit,
+    useIndoArabic: Boolean = false
 ) {
     val isCompleted = remainingCount == 0
     val haptic = LocalHapticFeedback.current
@@ -341,7 +366,7 @@ private fun ThikrCard(
 
     val cardColor by animateColorAsState(
         targetValue = if (isPressed && !isCompleted) {
-            tealColor.copy(alpha = 0.1f)
+            islamicGreen.copy(alpha = 0.1f)
         } else if (isCompleted) {
             completedColor.copy(alpha = 0.1f)
         } else {
@@ -361,7 +386,7 @@ private fun ThikrCard(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = androidx.compose.material.ripple.rememberRipple(
                     bounded = true,
-                    color = tealColor
+                    color = islamicGreen
                 )
             ) {
                 // Haptic feedback
@@ -400,11 +425,11 @@ private fun ThikrCard(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(if (isCompleted) completedColor else tealColor),
+                        .background(if (isCompleted) completedColor else islamicGreen),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "$index",
+                        text = ArabicNumeralUtils.formatNumber(index, useIndoArabic),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -418,7 +443,7 @@ private fun ThikrCard(
                             .clip(RoundedCornerShape(24.dp))
                             .background(
                                 if (isCompleted) completedColor.copy(alpha = 0.2f)
-                                else tealColor.copy(alpha = 0.15f)
+                                else islamicGreen.copy(alpha = 0.15f)
                             )
                             .clickable { onReset() }
                             .padding(horizontal = 16.dp, vertical = 6.dp)
@@ -427,11 +452,11 @@ private fun ThikrCard(
                             text = if (isCompleted) {
                                 if (language == AppLanguage.ARABIC) "مكتمل" else "Done"
                             } else {
-                                "$remainingCount / ${thikr.repeatCount}"
+                                "${ArabicNumeralUtils.formatNumber(remainingCount, useIndoArabic)} / ${ArabicNumeralUtils.formatNumber(thikr.repeatCount, useIndoArabic)}"
                             },
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = if (isCompleted) completedColor else tealColor
+                            color = if (isCompleted) completedColor else islamicGreen
                         )
                     }
                 }
@@ -469,14 +494,14 @@ private fun ThikrCard(
                             modifier = Modifier
                                 .width(40.dp)
                                 .height(1.dp)
-                                .background(tealColor.copy(alpha = 0.3f))
+                                .background(islamicGreen.copy(alpha = 0.3f))
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = thikr.reference,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
-                            color = tealColor.copy(alpha = 0.7f),
+                            color = islamicGreen.copy(alpha = 0.7f),
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.width(12.dp))
@@ -484,7 +509,7 @@ private fun ThikrCard(
                             modifier = Modifier
                                 .width(40.dp)
                                 .height(1.dp)
-                                .background(tealColor.copy(alpha = 0.3f))
+                                .background(islamicGreen.copy(alpha = 0.3f))
                         )
                     }
                 }
@@ -496,7 +521,7 @@ private fun ThikrCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(tealColor.copy(alpha = 0.1f))
+                        .background(islamicGreen.copy(alpha = 0.1f))
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -506,7 +531,7 @@ private fun ThikrCard(
                         else
                             "Tap to count",
                         fontSize = 12.sp,
-                        color = tealColor,
+                        color = islamicGreen,
                         fontWeight = FontWeight.Medium,
                         textAlign = TextAlign.Center
                     )

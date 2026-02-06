@@ -20,6 +20,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.displayCutout
@@ -82,22 +84,30 @@ import com.quranmedia.player.presentation.theme.ReadingThemeColors
 import com.quranmedia.player.presentation.theme.ReadingThemes
 
 // KFGQPC Hafs Uthmanic Script - Official King Fahd Complex font for accurate Quran rendering
+// This font has special glyphs for ayah numbers with decorations - use ONLY for Quran text
 val kfgqpcHafsFont = FontFamily(
     Font(R.font.kfgqpc_hafs_uthmanic, FontWeight.Normal),
     Font(R.font.kfgqpc_hafs_uthmanic, FontWeight.Bold)
 )
 
-val scheherazadeFont = kfgqpcHafsFont
+// Scheherazade - General Arabic font for UI elements (no Quran-specific decorations)
+// Use this for dates, numbers, labels, etc. to avoid ayah number decorations
+val scheherazadeFont = FontFamily(
+    Font(R.font.scheherazade_regular, FontWeight.Normal),
+    Font(R.font.scheherazade_regular, FontWeight.Bold)
+)
 
-// Islamic theme colors
-val islamicGreen = Color(0xFF2E7D32)
-val lightGreen = Color(0xFF66BB6A)
-val darkGreen = Color(0xFF1B5E20)
-val goldAccent = Color(0xFFD4AF37)
-val creamBackground = Color(0xFFFFFBF0)
+// Updated theme colors
+val islamicGreen = Color(0xFF2E7D32)      // Green for headers/buttons (restored)
+val lightGreen = Color(0xFF4CAF50)        // Light green accent
+val darkGreen = Color(0xFF1B5E20)         // Dark green for emphasis
+val goldAccent = Color(0xFFD4AF37)        // Gold accent
+val creamBackground = Color(0xFFFDFBF7)   // Warm Beige/Cream background
+val coffeeBrown = Color(0xFF3E2723)       // Dark Coffee Brown for body text
+val softWoodBrown = Color(0xFFA1887F)     // Soft Wood Brown for dividers/borders
 
-// Arabic surah names map (shared)
-private val surahNamesArabic = mapOf(
+// Arabic surah names map (shared across composables)
+internal val surahNamesArabic = mapOf(
     1 to "الفاتحة", 2 to "البقرة", 3 to "آل عمران", 4 to "النساء", 5 to "المائدة",
     6 to "الأنعام", 7 to "الأعراف", 8 to "الأنفال", 9 to "التوبة", 10 to "يونس",
     11 to "هود", 12 to "يوسف", 13 to "الرعد", 14 to "إبراهيم", 15 to "الحجر",
@@ -185,6 +195,8 @@ fun QuranPageComposable(
     customBackgroundColor: Color? = null,
     customTextColor: Color? = null,
     customHeaderColor: Color? = null,
+    useBoldFont: Boolean = false,
+    isLandscape: Boolean = false,
     onTap: (() -> Unit)? = null,
     onAyahLongPress: ((Ayah, Offset) -> Unit)? = null
 ) {
@@ -252,6 +264,9 @@ fun QuranPageComposable(
 
     val pageHeaderHeight = 20.dp
 
+    // Scroll state for landscape mode
+    val scrollState = rememberScrollState()
+
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         BoxWithConstraints(
             modifier = modifier
@@ -264,7 +279,8 @@ fun QuranPageComposable(
 
             val topPadding = topInset + 8.dp
             val bottomPadding = bottomInset + 8.dp
-            val horizontalPadding = 12.dp
+            // Minimal horizontal padding in landscape to maximize text width
+            val horizontalPadding = if (isLandscape) 4.dp else 12.dp
             val availableHeight = screenHeight - topPadding - bottomPadding - pageHeaderHeight
             val availableWidth = screenWidth - (horizontalPadding * 2)
 
@@ -273,7 +289,7 @@ fun QuranPageComposable(
                     .fillMaxSize()
                     .padding(
                         top = topPadding,
-                        bottom = bottomPadding,
+                        bottom = if (isLandscape) 8.dp else bottomPadding,
                         start = horizontalPadding,
                         end = horizontalPadding
                     )
@@ -290,8 +306,12 @@ fun QuranPageComposable(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
+                        .weight(1f)
+                        .then(
+                            if (isLandscape) Modifier.verticalScroll(scrollState)
+                            else Modifier
+                        ),
+                    contentAlignment = if (isLandscape) Alignment.TopCenter else Alignment.Center
                 ) {
                     if (displayAyahs.isEmpty()) {
                         EmptyPageContent(themeColors = themeColors)
@@ -303,6 +323,8 @@ fun QuranPageComposable(
                                 availableHeight = availableHeight,
                                 themeColors = themeColors,
                                 readingTheme = readingTheme,
+                                useBoldFont = useBoldFont,
+                                isLandscape = isLandscape,
                                 onTap = onTap,
                                 onAyahLongPress = onAyahLongPress
                             )
@@ -315,8 +337,10 @@ fun QuranPageComposable(
                                 availableWidth = availableWidth,
                                 themeColors = themeColors,
                                 readingTheme = readingTheme,
+                                useBoldFont = useBoldFont,
                                 fitScreen = fitScreen,
                                 isSplitMode = zoomMode == ZoomMode.SPLIT,
+                                isLandscape = isLandscape,
                                 onTap = onTap,
                                 onAyahLongPress = onAyahLongPress
                             )
@@ -328,7 +352,6 @@ fun QuranPageComposable(
     }
 }
 
-// ... FullScreenCenteredContent remains unchanged ...
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FullScreenCenteredContent(
@@ -337,6 +360,8 @@ private fun FullScreenCenteredContent(
     availableHeight: androidx.compose.ui.unit.Dp,
     themeColors: ReadingThemeColors,
     readingTheme: ReadingTheme = ReadingTheme.LIGHT,
+    useBoldFont: Boolean = false,
+    isLandscape: Boolean = false,
     onTap: (() -> Unit)?,
     onAyahLongPress: ((Ayah, Offset) -> Unit)?
 ) {
@@ -347,23 +372,28 @@ private fun FullScreenCenteredContent(
     val ayahUnits = totalAyahs.toFloat()
     val totalUnits = ayahUnits + headerUnits
 
-    val baseFontSize = with(density) {
-        val availableHeightPx = availableHeight.toPx()
-        val unitHeight = availableHeightPx / totalUnits
-        val fontSize = unitHeight / 2.5f
-        fontSize.coerceIn(16f, 24f).sp
+    val baseFontSize = if (isLandscape) {
+        // Landscape: Fixed comfortable font size for scrollable content
+        28.sp
+    } else {
+        with(density) {
+            val availableHeightPx = availableHeight.toPx()
+            val unitHeight = availableHeightPx / totalUnits
+            val fontSize = unitHeight / 2.5f
+            fontSize.coerceIn(16f, 24f).sp
+        }
     }
-    val lineHeight = baseFontSize * 2.2f
+    val lineHeight = baseFontSize * (if (isLandscape) 1.8f else 2.2f)
     val circleSize = 24.sp
-    
+
     val ayahsBySurah = ayahs.groupBy { it.surahNumber }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = availableHeight),
+            .then(if (isLandscape) Modifier else Modifier.heightIn(max = availableHeight)),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceEvenly
+        verticalArrangement = if (isLandscape) Arrangement.Top else Arrangement.SpaceEvenly
     ) {
         ayahsBySurah.forEach { (surahNumber, surahAyahs) ->
             val startsOnThisPage = surahAyahs.any { it.ayahNumber == 1 }
@@ -391,7 +421,12 @@ private fun FullScreenCenteredContent(
                             TextView(ctx).apply {
                                 gravity = Gravity.CENTER
                                 textSize = baseFontSize.value
-                                typeface = ResourcesCompat.getFont(ctx, R.font.kfgqpc_hafs_uthmanic)
+                                val baseTypeface = ResourcesCompat.getFont(ctx, R.font.kfgqpc_hafs_uthmanic)
+                                typeface = if (useBoldFont) {
+                                    Typeface.create(baseTypeface, Typeface.BOLD)
+                                } else {
+                                    baseTypeface
+                                }
                             }
                         },
                         update = { textView ->
@@ -507,6 +542,7 @@ private fun FullScreenCenteredContent(
                         text = annotatedText,
                         inlineContent = inlineContent,
                         fontFamily = kfgqpcHafsFont,
+                        fontWeight = if (useBoldFont) FontWeight.Bold else FontWeight.Normal,
                         fontSize = baseFontSize,
                         lineHeight = lineHeight,
                         textAlign = TextAlign.Center,
@@ -774,21 +810,31 @@ private fun FullScreenMushafContent(
     availableWidth: androidx.compose.ui.unit.Dp,
     themeColors: ReadingThemeColors,
     readingTheme: ReadingTheme = ReadingTheme.LIGHT,
+    useBoldFont: Boolean = false,
     fitScreen: Boolean = true,
     isSplitMode: Boolean = false,
+    isLandscape: Boolean = false,
     onTap: (() -> Unit)?,
     onAyahLongPress: ((Ayah, Offset) -> Unit)?
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
 
-    // In split mode, use full screen (no aspect ratio constraint)
+    // In landscape or split mode, use full screen (no aspect ratio constraint)
     val mushafAspectRatio = when {
+        isLandscape -> 1.0f   // Full screen for landscape mode - no constraint
         isSplitMode -> 1.0f   // Full screen for split mode - no constraint
         fitScreen -> 0.65f    // Normal fit screen
         else -> 0.5f          // Zoomed mode
     }
-    val typeface = remember { ResourcesCompat.getFont(context, R.font.kfgqpc_hafs_uthmanic) }
+    val baseTypeface = remember { ResourcesCompat.getFont(context, R.font.kfgqpc_hafs_uthmanic) }
+    val typeface = remember(useBoldFont, baseTypeface) {
+        if (useBoldFont && baseTypeface != null) {
+            Typeface.create(baseTypeface, Typeface.BOLD)
+        } else {
+            baseTypeface
+        }
+    }
 
     // Colors preparation...
     val primaryColorInt = themeColors.textPrimary.toArgb()
@@ -887,9 +933,9 @@ private fun FullScreenMushafContent(
         val screenWidthPx = with(density) { maxWidth.toPx() }
         val screenHeightPx = with(density) { maxHeight.toPx() }
 
-        val (containerWidthPx, containerHeightPx) = remember(screenWidthPx, screenHeightPx, mushafAspectRatio, isSplitMode) {
-            if (isSplitMode) {
-                // SPLIT mode: Use full screen width and height for maximum text size
+        val (containerWidthPx, containerHeightPx) = remember(screenWidthPx, screenHeightPx, mushafAspectRatio, isSplitMode, isLandscape) {
+            if (isLandscape || isSplitMode) {
+                // Landscape/SPLIT mode: Use full screen width and height for maximum text size
                 Pair(screenWidthPx.toInt(), screenHeightPx.toInt())
             } else {
                 // Normal modes: Apply aspect ratio constraint
@@ -906,10 +952,18 @@ private fun FullScreenMushafContent(
         val containerHeightDp = with(density) { containerHeightPx.toDp() }
 
         // REMOVED Phase 1 Header Measurement. We pass full constraints to calculator.
-        
+
         // Calculate settings using TOTAL available height
-        val textSettings = remember(surahBlocks, containerWidthPx, containerHeightPx, fitScreen, isSplitMode) {
+        val textSettings = remember(surahBlocks, containerWidthPx, containerHeightPx, fitScreen, isSplitMode, isLandscape) {
             when {
+                isLandscape -> {
+                    // Landscape mode: Fixed comfortable font size with normal line spacing
+                    // Content will scroll - no need to fit everything on screen
+                    OptimalTextSettings(
+                        fontSizePx = 52f,  // Comfortable reading size
+                        lineSpacingMultiplier = 1.15f  // Normal line spacing
+                    )
+                }
                 isSplitMode -> {
                     // Split mode: Show half the content with large text filling the full screen
                     // Use very large font and high line spacing to fill the screen

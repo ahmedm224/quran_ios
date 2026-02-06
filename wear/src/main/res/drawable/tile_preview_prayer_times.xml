@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background circle -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#000000" />
+            <size
+                android:width="180dp"
+                android:height="180dp" />
+        </shape>
+    </item>
+    <!-- Green accent ring -->
+    <item
+        android:left="4dp"
+        android:top="4dp"
+        android:right="4dp"
+        android:bottom="4dp">
+        <shape android:shape="oval">
+            <stroke
+                android:width="2dp"
+                android:color="#4CAF50" />
+            <solid android:color="#000000" />
+        </shape>
+    </item>
+    <!-- Prayer icon in center -->
+    <item
+        android:drawable="@drawable/ic_prayer_time"
+        android:gravity="center"
+        android:width="48dp"
+        android:height="48dp" />
+</layer-list>

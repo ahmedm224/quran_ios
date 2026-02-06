@@ -31,7 +31,8 @@ data class BookmarksState(
     val readingBookmarks: List<ReadingBookmarkEntity> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
-    val appLanguage: AppLanguage = AppLanguage.ARABIC
+    val appLanguage: AppLanguage = AppLanguage.ARABIC,
+    val useIndoArabicNumerals: Boolean = false
 ) {
     // For backward compatibility
     val bookmarks: List<BookmarkWithDetails> get() = playbackBookmarks
@@ -57,7 +58,10 @@ class BookmarksViewModel @Inject constructor(
     private fun loadSettings() {
         viewModelScope.launch {
             settingsRepository.settings.collect { settings ->
-                _state.value = _state.value.copy(appLanguage = settings.appLanguage)
+                _state.value = _state.value.copy(
+                    appLanguage = settings.appLanguage,
+                    useIndoArabicNumerals = settings.useIndoArabicNumerals
+                )
             }
         }
     }

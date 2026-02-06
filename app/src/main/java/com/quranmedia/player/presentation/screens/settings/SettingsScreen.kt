@@ -53,6 +53,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.quranmedia.player.data.repository.AppLanguage
 import com.quranmedia.player.data.repository.ReadingTheme
 import com.quranmedia.player.data.repository.ReminderInterval
+import com.quranmedia.player.data.source.FontDownloadProgress
+import com.quranmedia.player.data.source.FontDownloadState
 import com.quranmedia.player.presentation.screens.reader.components.scheherazadeFont
 import com.quranmedia.player.presentation.theme.ReadingThemes
 import com.quranmedia.player.presentation.util.Strings
@@ -82,6 +84,10 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsState()
     val language = settings.appLanguage
     val context = LocalContext.current
+
+    // Font download progress
+    val v2Progress by viewModel.v2DownloadProgress.collectAsState()
+    val v4Progress by viewModel.v4DownloadProgress.collectAsState()
 
     var showIntervalDialog by remember { mutableStateOf(false) }
     var showQuietHoursDialog by remember { mutableStateOf(false) }
@@ -286,6 +292,151 @@ fun SettingsScreen(
                     title = if (language == AppLanguage.ARABIC) "إعدادات العرض" else "Display Settings",
                     language = language
                 ) {
+                    // Mushaf Font toggle (renamed from QCF)
+                    SettingsSwitchItem(
+                        title = if (language == AppLanguage.ARABIC) "خط المصحف" else "Mushaf Font",
+                        subtitle = if (language == AppLanguage.ARABIC)
+                            "عرض القرآن بخط المصحف الشريف"
+                        else
+                            "Display Quran in traditional Mushaf font",
+                        icon = Icons.Default.MenuBook,
+                        checked = settings.useQCFFont,
+                        onCheckedChange = { viewModel.setUseQCFFont(it) },
+                        language = language
+                    )
+
+                    // Font download section (only show if Mushaf font is enabled)
+                    if (settings.useQCFFont) {
+                        val hasAnyFonts = viewModel.hasAnyFontsDownloaded()
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Warning if no fonts downloaded
+                        if (!hasAnyFonts) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFFFFF3E0) // Light orange
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = Color(0xFFE65100),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = if (language == AppLanguage.ARABIC)
+                                            "يجب تحميل الخطوط أولاً لاستخدام خط المصحف"
+                                        else
+                                            "You must download fonts first to use Mushaf font",
+                                        fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                        fontSize = 13.sp,
+                                        color = Color(0xFFE65100),
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
+                        // Tajweed hint (only show if fonts are downloaded)
+                        if (hasAnyFonts) {
+                            Text(
+                                text = if (language == AppLanguage.ARABIC)
+                                    "اختر مظهر التجويد من قسم مظهر القراءة لعرض ألوان التجويد"
+                                else
+                                    "Select Tajweed theme above to display Tajweed colors",
+                                fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                fontSize = 11.sp,
+                                color = Color.Gray,
+                                modifier = Modifier.padding(start = 46.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
+                        // Font downloads subsection
+                        Text(
+                            text = if (language == AppLanguage.ARABIC) "تحميل الخطوط" else "Font Downloads",
+                            fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = islamicGreen,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+
+                        // Mushaf font download (plain)
+                        FontDownloadItem(
+                            title = if (language == AppLanguage.ARABIC) "خط المصحف" else "Mushaf Font",
+                            subtitle = if (language == AppLanguage.ARABIC) "~198 ميجابايت" else "~198 MB",
+                            progress = v2Progress,
+                            language = language,
+                            formatSize = { viewModel.formatSize(it) },
+                            downloadedSize = viewModel.getV2FontsSize(),
+                            onDownload = { viewModel.downloadV2Fonts() },
+                            onDelete = { viewModel.deleteV2Fonts() }
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Mushaf Tajweed font download
+                        FontDownloadItem(
+                            title = if (language == AppLanguage.ARABIC) "خط المصحف بالتجويد" else "Mushaf Tajweed Font",
+                            subtitle = if (language == AppLanguage.ARABIC) "~159 ميجابايت" else "~159 MB",
+                            progress = v4Progress,
+                            language = language,
+                            formatSize = { viewModel.formatSize(it) },
+                            downloadedSize = viewModel.getV4FontsSize(),
+                            onDownload = { viewModel.downloadV4Fonts() },
+                            onDelete = { viewModel.deleteV4Fonts() }
+                        )
+
+                        // Info text
+                        Text(
+                            text = if (language == AppLanguage.ARABIC)
+                                "قم بتحميل الخطوط لاستخدام خط المصحف. يمكنك حذفها لتوفير المساحة."
+                            else
+                                "Download fonts to use Mushaf font. You can delete them to save space.",
+                            fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                            fontSize = 11.sp,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+
+                    // Bold font toggle (only for non-Mushaf text mode - doesn't work with Mushaf fonts)
+                    if (!settings.useQCFFont) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            color = Color.Gray.copy(alpha = 0.2f)
+                        )
+
+                        SettingsSwitchItem(
+                            title = if (language == AppLanguage.ARABIC) "خط عريض" else "Bold Font",
+                            subtitle = if (language == AppLanguage.ARABIC)
+                                "استخدام خط عريض للقرآن في وضع القراءة"
+                            else
+                                "Use bold font for Quran text in reading mode",
+                            icon = Icons.Default.FormatBold,
+                            checked = settings.useBoldFont,
+                            onCheckedChange = { viewModel.setUseBoldFont(it) },
+                            language = language
+                        )
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        color = Color.Gray.copy(alpha = 0.2f)
+                    )
+
                     // Keep screen on
                     SettingsSwitchItem(
                         title = if (language == AppLanguage.ARABIC) "إبقاء الشاشة مضاءة" else "Keep Screen On",
@@ -299,6 +450,56 @@ fun SettingsScreen(
                         language = language
                     )
                 }
+
+                // TODO: Recite Settings Section - Hidden until feature is ready
+                /*
+                SettingsSection(
+                    title = if (language == AppLanguage.ARABIC) "إعدادات التسميع" else "Recite Settings",
+                    language = language
+                ) {
+                    SettingsSwitchItem(
+                        title = if (language == AppLanguage.ARABIC) "التقييم الفوري" else "Real-Time Assessment",
+                        subtitle = if (language == AppLanguage.ARABIC)
+                            "تقييم كل آية على حدة مع تنبيه اهتزازي عند الخطأ"
+                        else
+                            "Assess each ayah separately with haptic feedback on mistakes",
+                        icon = Icons.Default.Speed,
+                        checked = settings.reciteRealTimeAssessment,
+                        onCheckedChange = { viewModel.setReciteRealTimeAssessment(it) },
+                        language = language
+                    )
+
+                    if (settings.reciteRealTimeAssessment) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            color = Color.Gray.copy(alpha = 0.2f)
+                        )
+
+                        SettingsSwitchItem(
+                            title = if (language == AppLanguage.ARABIC) "الاهتزاز عند الخطأ" else "Vibrate on Mistake",
+                            subtitle = if (language == AppLanguage.ARABIC)
+                                "اهتزاز ثلاثي عند اكتشاف خطأ في التلاوة"
+                            else
+                                "Triple vibration when a mistake is detected",
+                            icon = Icons.Default.Vibration,
+                            checked = settings.reciteHapticOnMistake,
+                            onCheckedChange = { viewModel.setReciteHapticOnMistake(it) },
+                            language = language
+                        )
+                    }
+
+                    Text(
+                        text = if (language == AppLanguage.ARABIC)
+                            "الوضع العادي: تسجيل كامل ثم عرض النتائج\nالوضع الفوري: تقييم كل آية على حدة"
+                        else
+                            "Normal mode: Full recording then show results\nReal-time mode: Assess each ayah separately",
+                        fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(start = 52.dp, top = 8.dp)
+                    )
+                }
+                */
 
                 // Language Section
                 SettingsSection(
@@ -1048,6 +1249,136 @@ private fun LanguageOption(
                 tint = islamicGreen,
                 modifier = Modifier.size(24.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun FontDownloadItem(
+    title: String,
+    subtitle: String,
+    progress: FontDownloadProgress,
+    language: AppLanguage,
+    formatSize: (Long) -> String,
+    downloadedSize: Long,
+    onDownload: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val isDownloaded = progress.state == FontDownloadState.DOWNLOADED
+    val isDownloading = progress.state == FontDownloadState.DOWNLOADING
+    val hasError = progress.state == FontDownloadState.ERROR
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDownloaded) lightGreen.copy(alpha = 0.1f) else Color.Gray.copy(alpha = 0.05f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.Black
+                    )
+                    Text(
+                        text = when {
+                            isDownloaded -> if (language == AppLanguage.ARABIC)
+                                "تم التحميل (${formatSize(downloadedSize)})"
+                            else
+                                "Downloaded (${formatSize(downloadedSize)})"
+                            isDownloading -> if (language == AppLanguage.ARABIC)
+                                "جاري التحميل... ${(progress.progress * 100).toInt()}%"
+                            else
+                                "Downloading... ${(progress.progress * 100).toInt()}%"
+                            hasError -> progress.errorMessage ?: (if (language == AppLanguage.ARABIC) "خطأ" else "Error")
+                            else -> subtitle
+                        },
+                        fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                        fontSize = 11.sp,
+                        color = when {
+                            isDownloaded -> islamicGreen
+                            hasError -> Color.Red
+                            else -> Color.Gray
+                        }
+                    )
+                }
+
+                // Action button
+                when {
+                    isDownloading -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = islamicGreen,
+                            strokeWidth = 2.dp
+                        )
+                    }
+                    isDownloaded -> {
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = if (language == AppLanguage.ARABIC) "حذف" else "Delete",
+                                tint = Color.Red.copy(alpha = 0.7f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    else -> {
+                        Button(
+                            onClick = onDownload,
+                            modifier = Modifier.height(32.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = islamicGreen),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                horizontal = 12.dp,
+                                vertical = 0.dp
+                            )
+                        ) {
+                            Icon(
+                                Icons.Default.Download,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (language == AppLanguage.ARABIC) "تحميل" else "Download",
+                                fontSize = 12.sp,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Progress bar (only show when downloading)
+            if (isDownloading) {
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { progress.progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = islamicGreen,
+                    trackColor = Color.Gray.copy(alpha = 0.2f)
+                )
+            }
         }
     }
 }

@@ -23,6 +23,12 @@ interface DownloadTaskDao {
     @Query("SELECT * FROM download_tasks WHERE reciterId = :reciterId AND surahNumber = :surahNumber")
     suspend fun getDownloadTaskForSurah(reciterId: String, surahNumber: Int): DownloadTaskEntity?
 
+    @Query("SELECT * FROM download_tasks WHERE reciterId = :reciterId ORDER BY surahNumber ASC")
+    suspend fun getDownloadTasksForReciterSync(reciterId: String): List<DownloadTaskEntity>
+
+    @Query("SELECT * FROM download_tasks WHERE reciterId = :reciterId ORDER BY surahNumber ASC")
+    fun getDownloadTasksForReciter(reciterId: String): Flow<List<DownloadTaskEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDownloadTask(task: DownloadTaskEntity): Long
 

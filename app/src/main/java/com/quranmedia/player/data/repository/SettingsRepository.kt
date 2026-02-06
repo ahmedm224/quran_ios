@@ -110,39 +110,50 @@ data class UserSettings(
     // Prayer times settings
     val prayerCalculationMethod: Int = 4,  // Umm Al-Qura (Makkah) default
     val asrJuristicMethod: Int = 0,  // 0 = Shafi (standard), 1 = Hanafi
-    // Prayer notification settings
-    val prayerNotificationEnabled: Boolean = false,
+    // Prayer notification settings - DEFAULT TO ENABLED with Athan
+    val prayerNotificationEnabled: Boolean = true,
     val prayerNotificationMinutesBefore: Int = 0,  // 0, 5, 10, 15, 30 minutes before
-    // Per-prayer enable flags (synced with notification modes - false when SILENT)
-    val notifyFajr: Boolean = false,
-    val notifyDhuhr: Boolean = false,
-    val notifyAsr: Boolean = false,
-    val notifyMaghrib: Boolean = false,
-    val notifyIsha: Boolean = false,
+    // Per-prayer enable flags (synced with notification modes)
+    val notifyFajr: Boolean = true,
+    val notifyDhuhr: Boolean = true,
+    val notifyAsr: Boolean = true,
+    val notifyMaghrib: Boolean = true,
+    val notifyIsha: Boolean = true,
     val prayerNotificationSound: Boolean = true,
     val prayerNotificationVibrate: Boolean = true,
     // Hijri date adjustment (-3 to +3 days)
     val hijriDateAdjustment: Int = 0,
     // Per-prayer athan settings
     // Notification mode for each prayer (ATHAN, NOTIFICATION, SILENT)
-    // Default to SILENT - user must explicitly enable (triggers permission request)
-    val fajrNotificationMode: PrayerNotificationMode = PrayerNotificationMode.SILENT,
-    val dhuhrNotificationMode: PrayerNotificationMode = PrayerNotificationMode.SILENT,
-    val asrNotificationMode: PrayerNotificationMode = PrayerNotificationMode.SILENT,
-    val maghribNotificationMode: PrayerNotificationMode = PrayerNotificationMode.SILENT,
-    val ishaNotificationMode: PrayerNotificationMode = PrayerNotificationMode.SILENT,
-    // Selected athan ID for each prayer (empty = use default)
-    val fajrAthanId: String = "1a014366658c",  // Abdulbasit Abdusamad (Egypt) - default
-    val dhuhrAthanId: String = "1a014366658c",
-    val asrAthanId: String = "1a014366658c",
-    val maghribAthanId: String = "1a014366658c",
-    val ishaAthanId: String = "1a014366658c",
+    // Default to ATHAN - bundled default athan ensures this works out of the box
+    val fajrNotificationMode: PrayerNotificationMode = PrayerNotificationMode.ATHAN,
+    val dhuhrNotificationMode: PrayerNotificationMode = PrayerNotificationMode.ATHAN,
+    val asrNotificationMode: PrayerNotificationMode = PrayerNotificationMode.ATHAN,
+    val maghribNotificationMode: PrayerNotificationMode = PrayerNotificationMode.ATHAN,
+    val ishaNotificationMode: PrayerNotificationMode = PrayerNotificationMode.ATHAN,
+    // Selected athan ID for each prayer - use bundled default athan
+    val fajrAthanId: String = "default_abdulbasit",
+    val dhuhrAthanId: String = "default_abdulbasit",
+    val asrAthanId: String = "default_abdulbasit",
+    val maghribAthanId: String = "default_abdulbasit",
+    val ishaAthanId: String = "default_abdulbasit",
     // Athan playback settings
     val athanMaxVolume: Boolean = false,  // Play athan at maximum volume - default OFF
     val flipToSilenceAthan: Boolean = false,  // Flip phone face-down to stop athan - default OFF
     // Version tracking and first-run
     val lastSeenVersionCode: Int = 0,  // Last version code that showed What's New screen
-    val hasCompletedInitialSetup: Boolean = false  // Whether user completed first-run setup
+    val hasCompletedInitialSetup: Boolean = false,  // Whether user completed first-run setup
+    // Recite (تسميع) feature settings
+    val reciteRealTimeAssessment: Boolean = false,  // Enable real-time ayah-by-ayah assessment with haptic feedback
+    val reciteHapticOnMistake: Boolean = true,  // Vibrate when mistake detected in real-time mode
+    // Reading font settings
+    val useBoldFont: Boolean = false,  // Use bold font for Quran text in reading mode
+    // QCF (Quran Complex Fonts) settings
+    val useQCFFont: Boolean = false,  // Use QCF per-page fonts (V2/V4) instead of KFGQPC
+    val qcfTajweedMode: Boolean = false,  // false = V2 (plain, customizable color), true = V4 (Tajweed embedded colors)
+    // Indo-Arabic numerals (٠١٢٣٤٥٦٧٨٩) - only applies when app language is Arabic
+    // Default to true since Arabic users typically expect Indo-Arabic numerals
+    val useIndoArabicNumerals: Boolean = true
 )
 
 @Singleton
@@ -195,30 +206,36 @@ class SettingsRepository @Inject constructor(
             keepScreenOn = prefs.getBoolean("keepScreenOn", true),
             prayerCalculationMethod = prefs.getInt("prayerCalculationMethod", 4),
             asrJuristicMethod = prefs.getInt("asrJuristicMethod", 0),
-            prayerNotificationEnabled = prefs.getBoolean("prayerNotificationEnabled", false),
+            prayerNotificationEnabled = prefs.getBoolean("prayerNotificationEnabled", true),
             prayerNotificationMinutesBefore = prefs.getInt("prayerNotificationMinutesBefore", 0),
-            notifyFajr = prefs.getBoolean("notifyFajr", false),
-            notifyDhuhr = prefs.getBoolean("notifyDhuhr", false),
-            notifyAsr = prefs.getBoolean("notifyAsr", false),
-            notifyMaghrib = prefs.getBoolean("notifyMaghrib", false),
-            notifyIsha = prefs.getBoolean("notifyIsha", false),
+            notifyFajr = prefs.getBoolean("notifyFajr", true),
+            notifyDhuhr = prefs.getBoolean("notifyDhuhr", true),
+            notifyAsr = prefs.getBoolean("notifyAsr", true),
+            notifyMaghrib = prefs.getBoolean("notifyMaghrib", true),
+            notifyIsha = prefs.getBoolean("notifyIsha", true),
             prayerNotificationSound = prefs.getBoolean("prayerNotificationSound", true),
             prayerNotificationVibrate = prefs.getBoolean("prayerNotificationVibrate", true),
             hijriDateAdjustment = prefs.getInt("hijriDateAdjustment", 0),
-            fajrNotificationMode = PrayerNotificationMode.entries.find { it.name == prefs.getString("fajrNotificationMode", "SILENT") } ?: PrayerNotificationMode.SILENT,
-            dhuhrNotificationMode = PrayerNotificationMode.entries.find { it.name == prefs.getString("dhuhrNotificationMode", "SILENT") } ?: PrayerNotificationMode.SILENT,
-            asrNotificationMode = PrayerNotificationMode.entries.find { it.name == prefs.getString("asrNotificationMode", "SILENT") } ?: PrayerNotificationMode.SILENT,
-            maghribNotificationMode = PrayerNotificationMode.entries.find { it.name == prefs.getString("maghribNotificationMode", "SILENT") } ?: PrayerNotificationMode.SILENT,
-            ishaNotificationMode = PrayerNotificationMode.entries.find { it.name == prefs.getString("ishaNotificationMode", "SILENT") } ?: PrayerNotificationMode.SILENT,
-            fajrAthanId = prefs.getString("fajrAthanId", "1a014366658c") ?: "1a014366658c",
-            dhuhrAthanId = prefs.getString("dhuhrAthanId", "1a014366658c") ?: "1a014366658c",
-            asrAthanId = prefs.getString("asrAthanId", "1a014366658c") ?: "1a014366658c",
-            maghribAthanId = prefs.getString("maghribAthanId", "1a014366658c") ?: "1a014366658c",
-            ishaAthanId = prefs.getString("ishaAthanId", "1a014366658c") ?: "1a014366658c",
+            fajrNotificationMode = PrayerNotificationMode.entries.find { it.name == prefs.getString("fajrNotificationMode", "ATHAN") } ?: PrayerNotificationMode.ATHAN,
+            dhuhrNotificationMode = PrayerNotificationMode.entries.find { it.name == prefs.getString("dhuhrNotificationMode", "ATHAN") } ?: PrayerNotificationMode.ATHAN,
+            asrNotificationMode = PrayerNotificationMode.entries.find { it.name == prefs.getString("asrNotificationMode", "ATHAN") } ?: PrayerNotificationMode.ATHAN,
+            maghribNotificationMode = PrayerNotificationMode.entries.find { it.name == prefs.getString("maghribNotificationMode", "ATHAN") } ?: PrayerNotificationMode.ATHAN,
+            ishaNotificationMode = PrayerNotificationMode.entries.find { it.name == prefs.getString("ishaNotificationMode", "ATHAN") } ?: PrayerNotificationMode.ATHAN,
+            fajrAthanId = prefs.getString("fajrAthanId", "default_abdulbasit") ?: "default_abdulbasit",
+            dhuhrAthanId = prefs.getString("dhuhrAthanId", "default_abdulbasit") ?: "default_abdulbasit",
+            asrAthanId = prefs.getString("asrAthanId", "default_abdulbasit") ?: "default_abdulbasit",
+            maghribAthanId = prefs.getString("maghribAthanId", "default_abdulbasit") ?: "default_abdulbasit",
+            ishaAthanId = prefs.getString("ishaAthanId", "default_abdulbasit") ?: "default_abdulbasit",
             athanMaxVolume = prefs.getBoolean("athanMaxVolume", false),
             flipToSilenceAthan = prefs.getBoolean("flipToSilenceAthan", false),
             lastSeenVersionCode = prefs.getInt("lastSeenVersionCode", 0),
-            hasCompletedInitialSetup = prefs.getBoolean("hasCompletedInitialSetup", false)
+            hasCompletedInitialSetup = prefs.getBoolean("hasCompletedInitialSetup", false),
+            reciteRealTimeAssessment = prefs.getBoolean("reciteRealTimeAssessment", false),
+            reciteHapticOnMistake = prefs.getBoolean("reciteHapticOnMistake", true),
+            useBoldFont = prefs.getBoolean("useBoldFont", false),
+            useQCFFont = prefs.getBoolean("useQCFFont", false),
+            qcfTajweedMode = prefs.getBoolean("qcfTajweedMode", false),
+            useIndoArabicNumerals = prefs.getBoolean("useIndoArabicNumerals", true)
         )
     }
 
@@ -287,6 +304,12 @@ class SettingsRepository @Inject constructor(
             putBoolean("flipToSilenceAthan", settings.flipToSilenceAthan)
             putInt("lastSeenVersionCode", settings.lastSeenVersionCode)
             putBoolean("hasCompletedInitialSetup", settings.hasCompletedInitialSetup)
+            putBoolean("reciteRealTimeAssessment", settings.reciteRealTimeAssessment)
+            putBoolean("reciteHapticOnMistake", settings.reciteHapticOnMistake)
+            putBoolean("useBoldFont", settings.useBoldFont)
+            putBoolean("useQCFFont", settings.useQCFFont)
+            putBoolean("qcfTajweedMode", settings.qcfTajweedMode)
+            putBoolean("useIndoArabicNumerals", settings.useIndoArabicNumerals)
             apply()
         }
     }
@@ -565,6 +588,34 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setFlipToSilenceAthan(enabled: Boolean) {
         updateSettings { copy(flipToSilenceAthan = enabled) }
+    }
+
+    // Recite (تسميع) settings
+    suspend fun setReciteRealTimeAssessment(enabled: Boolean) {
+        updateSettings { copy(reciteRealTimeAssessment = enabled) }
+    }
+
+    suspend fun setReciteHapticOnMistake(enabled: Boolean) {
+        updateSettings { copy(reciteHapticOnMistake = enabled) }
+    }
+
+    // Reading font settings
+    suspend fun setUseBoldFont(enabled: Boolean) {
+        updateSettings { copy(useBoldFont = enabled) }
+    }
+
+    // QCF (Quran Complex Fonts) settings
+    suspend fun setUseQCFFont(enabled: Boolean) {
+        updateSettings { copy(useQCFFont = enabled) }
+    }
+
+    suspend fun setQCFTajweedMode(enabled: Boolean) {
+        updateSettings { copy(qcfTajweedMode = enabled) }
+    }
+
+    // Indo-Arabic numerals setting
+    suspend fun setUseIndoArabicNumerals(enabled: Boolean) {
+        updateSettings { copy(useIndoArabicNumerals = enabled) }
     }
 
     /**

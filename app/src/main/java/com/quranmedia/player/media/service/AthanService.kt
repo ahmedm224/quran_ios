@@ -87,15 +87,22 @@ class AthanService : Service() {
     // Sensor listener for flip detection
     private val sensorListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent?) {
-            if (!isFlipToSilenceEnabled || !athanPlayer.isPlaying()) return
+            if (!isFlipToSilenceEnabled) return
+
+            try {
+                if (!athanPlayer.isPlaying()) return
+            } catch (e: Exception) {
+                return
+            }
 
             when (event?.sensor?.type) {
                 Sensor.TYPE_ACCELEROMETER -> {
                     val z = event.values[2]
                     // Phone is face down when Z axis is significantly negative
-                    // Z < -8 means gravity is pulling "up" relative to screen = face down
-                    if (z < -8f && lastZ >= -8f) {
-                        Timber.d("Phone flipped face down - stopping athan")
+                    // Z < -7 means gravity is pulling "up" relative to screen = face down
+                    // Using -7 instead of -8 for better sensitivity
+                    if (z < -7f && lastZ >= -7f) {
+                        Timber.d("Phone flipped face down (z=$z, lastZ=$lastZ) - stopping athan")
                         stopAthanPlayback()
                     }
                     lastZ = z
@@ -107,7 +114,7 @@ class AthanService : Service() {
                     isPhoneFaceDown = distance < maxRange * 0.5f
                     if (isPhoneFaceDown && abs(lastZ) < 3f) {
                         // Phone is flat and proximity sensor triggered = lying face down
-                        Timber.d("Proximity sensor triggered while flat - stopping athan")
+                        Timber.d("Proximity triggered while flat (dist=$distance, lastZ=$lastZ) - stopping athan")
                         stopAthanPlayback()
                     }
                 }
@@ -271,23 +278,32 @@ class AthanService : Service() {
             return
         }
 
+        // Reset lastZ to prevent false triggers on startup
+        lastZ = 0f
+
         try {
             // Register accelerometer for flip detection
-            accelerometer?.let {
-                sensorManager?.registerListener(
+            if (accelerometer == null) {
+                Timber.w("Accelerometer sensor not available")
+            } else {
+                val registered = sensorManager?.registerListener(
                     sensorListener,
-                    it,
-                    SensorManager.SENSOR_DELAY_NORMAL
+                    accelerometer,
+                    SensorManager.SENSOR_DELAY_UI  // Faster for quicker flip detection
                 )
+                Timber.d("Accelerometer registered: $registered")
             }
 
             // Register proximity sensor
-            proximitySensor?.let {
-                sensorManager?.registerListener(
+            if (proximitySensor == null) {
+                Timber.w("Proximity sensor not available")
+            } else {
+                val registered = sensorManager?.registerListener(
                     sensorListener,
-                    it,
-                    SensorManager.SENSOR_DELAY_NORMAL
+                    proximitySensor,
+                    SensorManager.SENSOR_DELAY_UI
                 )
+                Timber.d("Proximity sensor registered: $registered")
             }
 
             // Register media button receiver

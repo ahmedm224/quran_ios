@@ -9,10 +9,15 @@ import androidx.work.Configuration
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.quranmedia.player.data.repository.AthanRepository
+import com.quranmedia.player.data.repository.TafseerRepository
 import com.quranmedia.player.data.worker.QuranDataPopulatorWorker
 import com.quranmedia.player.data.worker.ReciterDataPopulatorWorker
 import com.quranmedia.player.domain.util.TajweedDataLoader
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -21,6 +26,12 @@ class QuranMediaApplication : Application(), Configuration.Provider {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
+
+    @Inject
+    lateinit var athanRepository: AthanRepository
+
+    @Inject
+    lateinit var tafseerRepository: TafseerRepository
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -46,6 +57,12 @@ class QuranMediaApplication : Application(), Configuration.Provider {
 
         // Load Tajweed data from bundled JSON (static data, no API needed)
         TajweedDataLoader.loadTajweedData(this)
+
+        // Initialize default bundled athan (ensures athan works out of the box)
+        initializeDefaultAthan()
+
+        // Initialize bundled tafseers (Muyassar, Irab) - auto-loads from assets
+        initializeBundledTafseers()
 
         Timber.d("QuranMediaApplication initialized - Workers enqueued, Tajweed data loaded")
     }
@@ -74,6 +91,52 @@ class QuranMediaApplication : Application(), Configuration.Provider {
         )
 
         Timber.d("Reciter data population work enqueued")
+    }
+
+    private fun initializeDefaultAthan() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val success = athanRepository.ensureDefaultAthanAvailable()
+                if (success) {
+                    Timber.d("Default athan initialized successfully")
+                } else {
+                    Timber.w("Default athan not available (asset may be missing)")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error initializing default athan")
+            }
+        }
+    }
+
+    /**
+     * Initialize bundled tafseers (Muyassar, Irab) from assets.
+     * These are pre-loaded so users don't need to download them.
+     */
+    private fun initializeBundledTafseers() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // List of bundled tafseer IDs
+                val bundledTafseerIds = listOf("muyassar", "quran-irab")
+
+                for (tafseerId in bundledTafseerIds) {
+                    // Check if already loaded
+                    val isLoaded = tafseerRepository.isDownloaded(tafseerId)
+                    if (!isLoaded) {
+                        Timber.d("Loading bundled tafseer: $tafseerId")
+                        val success = tafseerRepository.downloadTafseer(tafseerId)
+                        if (success) {
+                            Timber.d("Bundled tafseer loaded: $tafseerId")
+                        } else {
+                            Timber.w("Failed to load bundled tafseer: $tafseerId")
+                        }
+                    } else {
+                        Timber.d("Bundled tafseer already loaded: $tafseerId")
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error initializing bundled tafseers")
+            }
+        }
     }
 
     private fun createNotificationChannels() {

@@ -3,7 +3,6 @@ package com.quranmedia.player.di
 import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import com.quranmedia.player.data.api.AladhanApi
 import com.quranmedia.player.data.api.AlQuranCloudApi
 import com.quranmedia.player.data.api.AthanApi
 import com.quranmedia.player.data.api.AthkarApi
@@ -34,10 +33,6 @@ annotation class AlQuranCloud
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class CloudLinqed
-
-@Qualifier
-@Retention(AnnotationRetention.BINARY)
-annotation class Aladhan
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -147,23 +142,6 @@ object NetworkModule {
     }
 
     /**
-     * Retrofit instance for Aladhan Prayer Times API
-     */
-    @Provides
-    @Singleton
-    @Aladhan
-    fun provideAladhanRetrofit(
-        okHttpClient: OkHttpClient,
-        gson: Gson
-    ): Retrofit {
-        return Retrofit.Builder()
-            .baseUrl(AladhanApi.BASE_URL)
-            .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create(gson))
-            .build()
-    }
-
-    /**
      * Retrofit instance for HisnMuslim Athkar API
      */
     @Provides
@@ -178,12 +156,6 @@ object NetworkModule {
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
-    }
-
-    @Provides
-    @Singleton
-    fun provideAladhanApi(@Aladhan retrofit: Retrofit): AladhanApi {
-        return retrofit.create(AladhanApi::class.java)
     }
 
     @Provides

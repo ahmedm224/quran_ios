@@ -26,17 +26,23 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.quranmedia.player.data.repository.AppLanguage
 import com.quranmedia.player.domain.model.AthkarCategory
 import com.quranmedia.player.presentation.screens.reader.components.scheherazadeFont
-
-// Theme colors
-private val islamicGreen = Color(0xFF2E7D32)
-private val tealColor = Color(0xFF00897B)
-private val creamBackground = Color(0xFFFAF8F3)
+import com.quranmedia.player.presentation.screens.reader.components.creamBackground
+import com.quranmedia.player.presentation.screens.reader.components.islamicGreen
+import com.quranmedia.player.presentation.screens.reader.components.darkGreen
+import com.quranmedia.player.presentation.components.CommonOverflowMenu
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AthkarCategoriesScreen(
     onNavigateBack: () -> Unit,
     onCategoryClick: (String) -> Unit,
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToPrayerTimes: () -> Unit = {},
+    onNavigateToTracker: () -> Unit = {},
+    onNavigateToDownloads: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {},
+    onNavigateToReading: () -> Unit = {},
+    onNavigateToImsakiya: () -> Unit = {},
     viewModel: AthkarCategoriesViewModel = hiltViewModel()
 ) {
     val categories by viewModel.categories.collectAsState()
@@ -63,8 +69,21 @@ fun AthkarCategoriesScreen(
                             )
                         }
                     },
+                    actions = {
+                        CommonOverflowMenu(
+                            language = language,
+                            onNavigateToSettings = onNavigateToSettings,
+                            onNavigateToReading = onNavigateToReading,
+                            onNavigateToPrayerTimes = onNavigateToPrayerTimes,
+                            onNavigateToImsakiya = onNavigateToImsakiya,
+                            onNavigateToTracker = onNavigateToTracker,
+                            onNavigateToDownloads = onNavigateToDownloads,
+                            onNavigateToAbout = onNavigateToAbout,
+                            hideAthkar = true  // Hide Athkar since we're on this screen
+                        )
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = tealColor,
+                        containerColor = islamicGreen,
                         titleContentColor = Color.White,
                         navigationIconContentColor = Color.White
                     )
@@ -80,7 +99,7 @@ fun AthkarCategoriesScreen(
                         .padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = tealColor)
+                    CircularProgressIndicator(color = islamicGreen)
                 }
             } else {
                 LazyVerticalGrid(
@@ -132,13 +151,13 @@ private fun CategoryCard(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(tealColor.copy(alpha = 0.1f)),
+                    .background(islamicGreen.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = getIconForCategory(category.iconName),
                     contentDescription = null,
-                    tint = tealColor,
+                    tint = islamicGreen,
                     modifier = Modifier.size(32.dp)
                 )
             }

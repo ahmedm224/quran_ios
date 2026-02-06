@@ -45,6 +45,9 @@ interface AyahDao {
     @Query("SELECT * FROM ayahs WHERE surahNumber = :surahNumber AND ayahNumber = :ayahNumber")
     suspend fun getAyah(surahNumber: Int, ayahNumber: Int): AyahEntity?
 
+    @Query("SELECT * FROM ayahs WHERE surahNumber = :surahNumber AND ayahNumber BETWEEN :startAyah AND :endAyah ORDER BY ayahNumber ASC")
+    suspend fun getAyahRange(surahNumber: Int, startAyah: Int, endAyah: Int): List<AyahEntity>
+
     @Query("SELECT * FROM ayahs WHERE globalAyahNumber = :globalNumber")
     suspend fun getAyahByGlobalNumber(globalNumber: Int): AyahEntity?
 

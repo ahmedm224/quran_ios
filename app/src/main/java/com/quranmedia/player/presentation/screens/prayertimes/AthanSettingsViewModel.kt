@@ -27,6 +27,7 @@ import javax.inject.Inject
 
 data class AthanSettingsUiState(
     val language: AppLanguage = AppLanguage.ARABIC,
+    val useIndoArabicNumerals: Boolean = false,
     val availableAthans: List<Athan> = emptyList(),
     val downloadedAthans: List<Athan> = emptyList(),
     val isLoadingAthans: Boolean = false,
@@ -34,17 +35,17 @@ data class AthanSettingsUiState(
     val previewingAthanId: String? = null,
     val athanMaxVolume: Boolean = true,
     val flipToSilence: Boolean = true,
-    // Per-prayer settings (default SILENT - user must enable explicitly)
-    val fajrMode: PrayerNotificationMode = PrayerNotificationMode.SILENT,
-    val dhuhrMode: PrayerNotificationMode = PrayerNotificationMode.SILENT,
-    val asrMode: PrayerNotificationMode = PrayerNotificationMode.SILENT,
-    val maghribMode: PrayerNotificationMode = PrayerNotificationMode.SILENT,
-    val ishaMode: PrayerNotificationMode = PrayerNotificationMode.SILENT,
-    val fajrAthanId: String = "1a014366658c",  // Abdulbasit Abdusamad (Egypt)
-    val dhuhrAthanId: String = "1a014366658c",
-    val asrAthanId: String = "1a014366658c",
-    val maghribAthanId: String = "1a014366658c",
-    val ishaAthanId: String = "1a014366658c",
+    // Per-prayer settings (default ATHAN with Abdulbasit)
+    val fajrMode: PrayerNotificationMode = PrayerNotificationMode.ATHAN,
+    val dhuhrMode: PrayerNotificationMode = PrayerNotificationMode.ATHAN,
+    val asrMode: PrayerNotificationMode = PrayerNotificationMode.ATHAN,
+    val maghribMode: PrayerNotificationMode = PrayerNotificationMode.ATHAN,
+    val ishaMode: PrayerNotificationMode = PrayerNotificationMode.ATHAN,
+    val fajrAthanId: String = AthanRepository.DEFAULT_ATHAN_ID,
+    val dhuhrAthanId: String = AthanRepository.DEFAULT_ATHAN_ID,
+    val asrAthanId: String = AthanRepository.DEFAULT_ATHAN_ID,
+    val maghribAthanId: String = AthanRepository.DEFAULT_ATHAN_ID,
+    val ishaAthanId: String = AthanRepository.DEFAULT_ATHAN_ID,
     // Notification settings (consolidated from PrayerNotificationDialog)
     val notifyMinutesBefore: Int = 0,
     val notificationSound: Boolean = true,
@@ -112,6 +113,7 @@ class AthanSettingsViewModel @Inject constructor(
             val calculationMethod = prayerTimesRepository.getSavedCalculationMethod()
             _uiState.value = _uiState.value.copy(
                 language = settings.appLanguage,
+                useIndoArabicNumerals = settings.useIndoArabicNumerals,
                 athanMaxVolume = settings.athanMaxVolume,
                 flipToSilence = settings.flipToSilenceAthan,
                 fajrMode = settings.fajrNotificationMode,
@@ -395,6 +397,21 @@ class AthanSettingsViewModel @Inject constructor(
                 }
             }
             else -> { /* Ignore errors */ }
+        }
+    }
+
+    // DEBUG: Schedule a test athan alarm for a specific time chosen by user
+    fun scheduleTestAthanAt(hour: Int, minute: Int) {
+        viewModelScope.launch {
+            try {
+                val athanId = _uiState.value.fajrAthanId
+                val maxVolume = _uiState.value.athanMaxVolume
+                Timber.d("=== SCHEDULING TEST ATHAN AT %02d:%02d ===", hour, minute)
+                prayerNotificationScheduler.scheduleTestAthanAt(hour, minute, athanId, maxVolume)
+                Timber.d("=== TEST ATHAN SCHEDULED - CLOSE APP NOW ===")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to schedule test athan")
+            }
         }
     }
 

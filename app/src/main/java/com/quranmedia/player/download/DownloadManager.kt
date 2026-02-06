@@ -3,6 +3,7 @@ package com.quranmedia.player.download
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import timber.log.Timber
 import java.io.File
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -151,5 +153,127 @@ class DownloadManager @Inject constructor(
 
             downloadTaskDao.deleteDownloadTask(it.id)
         }
+    }
+
+    /**
+     * Download the full Quran (all 114 surahs) for a specific reciter.
+     * Downloads are chained sequentially to respect API rate limits.
+     */
+    suspend fun downloadFullQuran(reciterId: String): List<String> {
+        val taskIds = mutableListOf<String>()
+        val workRequests = mutableListOf<androidx.work.OneTimeWorkRequest>()
+
+        // Get settings for WiFi-only option
+        val settings = settingsRepository.settings.first()
+        val wifiOnly = settings.wifiOnlyDownloads
+
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
+            .setRequiresStorageNotLow(true)
+            .build()
+
+        for (surahNumber in 1..114) {
+            // Check if already downloaded
+            val existingTask = downloadTaskDao.getDownloadTaskForSurah(reciterId, surahNumber)
+            if (existingTask?.status == DownloadStatus.COMPLETED.name) {
+                Timber.d("Surah $surahNumber already downloaded for $reciterId")
+                continue
+            }
+
+            // Create download task entry in database
+            val taskId = java.util.UUID.randomUUID().toString()
+            val audioVariantId = "${reciterId}_${surahNumber}"
+
+            val task = DownloadTaskEntity(
+                id = taskId,
+                audioVariantId = audioVariantId,
+                reciterId = reciterId,
+                surahNumber = surahNumber,
+                status = DownloadStatus.PENDING.name,
+                bytesTotal = 0L
+            )
+
+            downloadTaskDao.insertDownloadTask(task)
+
+            // Create work request
+            val workData = workDataOf(
+                AyahDownloadWorker.KEY_DOWNLOAD_TASK_ID to taskId,
+                AyahDownloadWorker.KEY_AUDIO_VARIANT_ID to audioVariantId,
+                AyahDownloadWorker.KEY_RECITER_ID to reciterId,
+                AyahDownloadWorker.KEY_SURAH_NUMBER to surahNumber
+            )
+
+            val downloadWork = OneTimeWorkRequestBuilder<AyahDownloadWorker>()
+                .setConstraints(constraints)
+                .setInputData(workData)
+                .addTag("full_quran_$reciterId")
+                .addTag("download_$taskId")
+                .build()
+
+            workRequests.add(downloadWork)
+            taskIds.add(taskId)
+        }
+
+        // Chain all workers to run sequentially
+        if (workRequests.isNotEmpty()) {
+            var workContinuation = workManager.beginUniqueWork(
+                "full_quran_$reciterId",
+                ExistingWorkPolicy.REPLACE,
+                workRequests.first()
+            )
+
+            for (i in 1 until workRequests.size) {
+                workContinuation = workContinuation.then(workRequests[i])
+            }
+
+            workContinuation.enqueue()
+        }
+
+        Timber.d("Full Quran download chained for $reciterId: ${taskIds.size} surahs (sequential)")
+        return taskIds
+    }
+
+    /**
+     * Get download progress for a reciter (for full Quran downloads).
+     * Returns a pair of (completed surahs, total surahs).
+     */
+    suspend fun getReciterDownloadProgress(reciterId: String): Pair<Int, Int> {
+        val tasks = downloadTaskDao.getDownloadTasksForReciterSync(reciterId)
+        val completed = tasks.count { it.status == DownloadStatus.COMPLETED.name }
+        return Pair(completed, 114)
+    }
+
+    /**
+     * Check if a reciter has any downloads (partial or complete).
+     */
+    suspend fun hasDownloadsForReciter(reciterId: String): Boolean {
+        val tasks = downloadTaskDao.getDownloadTasksForReciterSync(reciterId)
+        return tasks.isNotEmpty()
+    }
+
+    /**
+     * Delete all downloaded audio for a reciter.
+     */
+    suspend fun deleteAllDownloadsForReciter(reciterId: String) {
+        for (surahNumber in 1..114) {
+            deleteDownloadedAudio(reciterId, surahNumber)
+        }
+        Timber.d("Deleted all downloads for reciter: $reciterId")
+    }
+
+    /**
+     * Cancel all pending/in-progress downloads for a reciter.
+     */
+    suspend fun cancelAllDownloadsForReciter(reciterId: String) {
+        // Cancel the unique work chain if it exists
+        workManager.cancelUniqueWork("full_quran_$reciterId")
+
+        // Also cancel individual downloads
+        val tasks = downloadTaskDao.getDownloadTasksForReciterSync(reciterId)
+        tasks.filter { it.status != DownloadStatus.COMPLETED.name }
+            .forEach { task ->
+                cancelDownload(task.id)
+            }
+        Timber.d("Cancelled all pending downloads for reciter: $reciterId")
     }
 }

@@ -2,6 +2,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
     id("com.google.protobuf")
@@ -15,13 +16,19 @@ android {
         applicationId = "com.quranmedia.player"
         minSdk = 27
         targetSdk = 35
-        versionCode = 18
-        versionName = "2.0.2"
+        versionCode = 23
+        versionName = "2.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // AI API keys removed for public release
+        buildConfigField("String", "OPENAI_API_KEY", "\"\"")
+        buildConfigField("String", "DEEPGRAM_API_KEY", "\"\"")
+        buildConfigField("String", "MOONSHINE_SERVER_URL", "\"\"")
+        buildConfigField("String", "QURAN_RECITE_SERVER_URL", "\"\"")
     }
 
     buildTypes {
@@ -114,6 +121,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
+    // Kotlin Serialization (for QCF page data JSON parsing)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+
     // Android Auto / MediaBrowserService
     implementation("androidx.media:media:1.7.0")
 
@@ -128,6 +138,9 @@ dependencies {
 
     // JSON parsing
     implementation("com.google.code.gson:gson:2.10.1")
+
+    // Adhan for offline prayer times calculation (Java version - compatible with all Kotlin versions)
+    implementation("com.batoulapps.adhan:adhan:1.2.1")
 
     // Timber for logging
     implementation("com.jakewharton.timber:timber:5.0.1")

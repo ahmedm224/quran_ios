@@ -32,20 +32,23 @@ import com.quranmedia.player.domain.model.Surah
 import com.quranmedia.player.presentation.screens.reader.components.scheherazadeFont
 import com.quranmedia.player.presentation.util.Strings
 import com.quranmedia.player.presentation.util.layoutDirection
+import com.quranmedia.player.domain.util.ArabicNumeralUtils
 
-// Islamic theme colors
-private val islamicGreen = Color(0xFF2E7D32)
-private val lightGreen = Color(0xFF4CAF50)
-private val darkGreen = Color(0xFF1B5E20)
-private val goldAccent = Color(0xFFFFD54F)
-private val creamBackground = Color(0xFFF5F5F5)
+// Updated theme colors - Green headers with warm beige background
+private val islamicGreen = Color(0xFF2E7D32)      // Green for headers/buttons
+private val darkGreen = Color(0xFF1B5E20)         // Dark green for emphasis
+private val lightGreen = Color(0xFF4CAF50)        // Light green accent
+private val goldAccent = Color(0xFFD4AF37)        // Gold accent
+private val creamBackground = Color(0xFFFDFBF7)   // Warm Beige/Cream background
+private val coffeeBrown = Color(0xFF3E2723)       // Dark Coffee Brown for body text
+private val softWoodBrown = Color(0xFFA1887F)     // Soft Wood Brown for dividers/borders
 
 // Card colors
-private val tealColor = Color(0xFF00897B)
-private val purpleColor = Color(0xFF7E57C2)
-private val orangeColor = Color(0xFFFF8A65)
-private val blueColor = Color(0xFF42A5F5)
-private val greyColor = Color(0xFF78909C)
+private val tealColor = Color(0xFF00897B)         // Teal
+private val purpleColor = Color(0xFF7E57C2)       // Purple
+private val orangeColor = Color(0xFFFF8A65)       // Orange
+private val blueColor = Color(0xFF42A5F5)         // Blue
+private val greyColor = Color(0xFF78909C)         // Grey
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,7 +66,9 @@ fun HomeScreenNew(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToAthkar: () -> Unit = {},
     onNavigateToPrayerTimes: () -> Unit = {},
-    onNavigateToTracker: () -> Unit = {}
+    onNavigateToTracker: () -> Unit = {},
+    onNavigateToRecite: () -> Unit = {},
+    onNavigateToImsakiya: () -> Unit = {}  // TODO: Remove after Ramadan
 ) {
     val lastPlaybackInfo by viewModel.lastPlaybackInfo.collectAsState()
     val settings by viewModel.settings.collectAsState()
@@ -72,6 +77,7 @@ fun HomeScreenNew(
     val selectedReciter by viewModel.selectedReciter.collectAsState()
     val surahs by viewModel.surahs.collectAsState()
     val language = settings.appLanguage
+    val useIndoArabic = language == AppLanguage.ARABIC && settings.useIndoArabicNumerals
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
@@ -87,88 +93,241 @@ fun HomeScreenNew(
     }
 
     CompositionLocalProvider(LocalLayoutDirection provides language.layoutDirection()) {
+        // 3-dot menu state
+        var showContextMenu by remember { mutableStateOf(false) }
+
         Scaffold(
             topBar = {
-                // Header with 3D gradient effect
+                // Compact single-line header with wood theme
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .shadow(
-                            elevation = 12.dp,
-                            shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
-                            ambientColor = darkGreen.copy(alpha = 0.5f),
-                            spotColor = darkGreen.copy(alpha = 0.5f)
+                            elevation = 10.dp,
+                            shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
+                            ambientColor = darkGreen.copy(alpha = 0.4f),
+                            spotColor = darkGreen.copy(alpha = 0.4f)
                         )
-                        .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
+                        .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
-                                    Color(0xFF1B5E20),
-                                    Color(0xFF2E7D32),
-                                    Color(0xFF388E3C)
+                                    darkGreen,
+                                    islamicGreen,
+                                    lightGreen
                                 )
                             )
                         )
                         .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Top row
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 14.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = Strings.appName.get(language),
-                                fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
+                        // App name
+                        Text(
+                            text = Strings.appName.get(language),
+                            fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
 
-                            // Language toggle with 3D effect
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .shadow(4.dp, CircleShape)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.2f))
-                                    .clickable {
-                                        val newLang = if (language == AppLanguage.ARABIC)
-                                            AppLanguage.ENGLISH else AppLanguage.ARABIC
-                                        viewModel.setLanguage(newLang)
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = if (language == AppLanguage.ARABIC) "EN" else "ع",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                        }
+                        // Bismillah in the center (full version)
+                        Text(
+                            text = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+                            fontFamily = scheherazadeFont,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = goldAccent,
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.Center
+                        )
 
-                        // Bismillah with subtle glow effect
+                        // Language toggle
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp)
-                                .padding(bottom = 16.dp),
+                                .size(32.dp)
+                                .shadow(3.dp, CircleShape)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.2f))
+                                .clickable {
+                                    val newLang = if (language == AppLanguage.ARABIC)
+                                        AppLanguage.ENGLISH else AppLanguage.ARABIC
+                                    viewModel.setLanguage(newLang)
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
-                                fontFamily = scheherazadeFont,
-                                fontSize = 26.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = goldAccent,
-                                textAlign = TextAlign.Center
+                                text = if (language == AppLanguage.ARABIC) "EN" else "ع",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
                             )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // 3-dot context menu
+                        Box {
+                            IconButton(
+                                onClick = { showContextMenu = true },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.MoreVert,
+                                    contentDescription = "Menu",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = showContextMenu,
+                                onDismissRequest = { showContextMenu = false },
+                                modifier = Modifier.background(Color.White)
+                            ) {
+                                // Settings
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Default.Settings,
+                                                contentDescription = null,
+                                                tint = islamicGreen,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Text(
+                                                text = Strings.settings.get(language),
+                                                fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                                color = darkGreen
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        showContextMenu = false
+                                        onNavigateToSettings()
+                                    }
+                                )
+                                // Prayer Times
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Default.Schedule,
+                                                contentDescription = null,
+                                                tint = islamicGreen,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Text(
+                                                text = if (language == AppLanguage.ARABIC) "مواقيت الصلاة" else "Prayer Times",
+                                                fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                                color = darkGreen
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        showContextMenu = false
+                                        onNavigateToPrayerTimes()
+                                    }
+                                )
+                                // Athkar
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Default.WbSunny,
+                                                contentDescription = null,
+                                                tint = islamicGreen,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Text(
+                                                text = if (language == AppLanguage.ARABIC) "الأذكار" else "Athkar",
+                                                fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                                color = darkGreen
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        showContextMenu = false
+                                        onNavigateToAthkar()
+                                    }
+                                )
+                                // Daily Tracker
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = islamicGreen,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Text(
+                                                text = if (language == AppLanguage.ARABIC) "المتابعة اليومية" else "Daily Tracker",
+                                                fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                                color = darkGreen
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        showContextMenu = false
+                                        onNavigateToTracker()
+                                    }
+                                )
+                                // Downloads
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Default.CloudDownload,
+                                                contentDescription = null,
+                                                tint = islamicGreen,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Text(
+                                                text = Strings.downloads.get(language),
+                                                fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                                color = darkGreen
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        showContextMenu = false
+                                        onNavigateToDownloads()
+                                    }
+                                )
+                                // About
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Default.Info,
+                                                contentDescription = null,
+                                                tint = islamicGreen,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Text(
+                                                text = Strings.about.get(language),
+                                                fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                                                color = darkGreen
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        showContextMenu = false
+                                        onNavigateToAbout()
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -203,7 +362,8 @@ fun HomeScreenNew(
                     onNextAyah = { viewModel.nextAyah() },
                     onSpeedClick = { viewModel.cyclePlaybackSpeed() },
                     onRepeatClick = { viewModel.cycleAyahRepeatCount() },
-                    onOpenReader = navigateToReaderSmart
+                    onOpenReader = navigateToReaderSmart,
+                    useIndoArabic = useIndoArabic
                 )
 
                 // Main Quran Card - MAIN FEATURE - Always at top after media controller
@@ -212,17 +372,27 @@ fun HomeScreenNew(
                     onClick = onNavigateToQuranIndex
                 )
 
-                // Daily Tracker Card
+                // Prayer Times Card - Long card for prominence
                 FeatureCard(
-                    title = if (language == AppLanguage.ARABIC) "المتابعة اليومية" else "Daily Tracker",
-                    icon = Icons.Default.CheckCircle,
-                    cardColor = Color(0xFF00897B), // Teal color
+                    title = if (language == AppLanguage.ARABIC) "مواقيت الصلاة" else "Prayer Times",
+                    icon = Icons.Default.Schedule,
+                    cardColor = coffeeBrown,
                     language = language,
-                    onClick = onNavigateToTracker,
+                    onClick = onNavigateToPrayerTimes,
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Athkar and Prayer Times
+                // Ramadan Imsakiya (TODO: Remove after Ramadan)
+                FeatureCard(
+                    title = if (language == AppLanguage.ARABIC) "إمساكية رمضان" else "Ramadan Imsakiya",
+                    icon = Icons.Default.NightsStay,
+                    cardColor = Color(0xFF1A1A2E), // Ramadan dark purple
+                    language = language,
+                    onClick = onNavigateToImsakiya,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Athkar and Daily Tracker
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -236,11 +406,11 @@ fun HomeScreenNew(
                         modifier = Modifier.weight(1f)
                     )
                     FeatureCard(
-                        title = if (language == AppLanguage.ARABIC) "مواقيت الصلاة" else "Prayer Times",
-                        icon = Icons.Default.Schedule,
-                        cardColor = purpleColor,
+                        title = if (language == AppLanguage.ARABIC) "المتابعة اليومية" else "Daily Tracker",
+                        icon = Icons.Default.CheckCircle,
+                        cardColor = Color(0xFF00897B), // Teal color
                         language = language,
-                        onClick = onNavigateToPrayerTimes,
+                        onClick = onNavigateToTracker,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -264,29 +434,6 @@ fun HomeScreenNew(
                         cardColor = lightGreen,
                         language = language,
                         onClick = onNavigateToDownloads,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                // Settings and About
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    FeatureCard(
-                        title = Strings.settings.get(language),
-                        icon = Icons.Default.Settings,
-                        cardColor = greyColor,
-                        language = language,
-                        onClick = onNavigateToSettings,
-                        modifier = Modifier.weight(1f)
-                    )
-                    FeatureCard(
-                        title = Strings.about.get(language),
-                        icon = Icons.Default.Info,
-                        cardColor = blueColor,
-                        language = language,
-                        onClick = onNavigateToAbout,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -325,7 +472,8 @@ private fun MediaControlPanel(
     onNextAyah: () -> Unit,
     onSpeedClick: () -> Unit,
     onRepeatClick: () -> Unit,
-    onOpenReader: () -> Unit
+    onOpenReader: () -> Unit,
+    useIndoArabic: Boolean = false
 ) {
     var showReciterMenu by remember { mutableStateOf(false) }
     var showSurahMenu by remember { mutableStateOf(false) }
@@ -482,7 +630,7 @@ private fun MediaControlPanel(
                         surahs.forEach { surah ->
                             val isSelected = surah.number == currentSurahNumber
                             val displayName = if (language == AppLanguage.ARABIC) {
-                                "${surah.number}. ${surah.nameArabic}"
+                                "${ArabicNumeralUtils.formatNumber(surah.number, useIndoArabic)}. ${surah.nameArabic}"
                             } else {
                                 "${surah.number}. ${surah.nameEnglish}"
                             }
@@ -526,9 +674,11 @@ private fun MediaControlPanel(
                 // Ayah info - compact
                 Column(modifier = Modifier.weight(1f)) {
                     if (currentAyah != null) {
+                        val formattedAyah = ArabicNumeralUtils.formatNumber(currentAyah, useIndoArabic)
+                        val formattedTotal = totalAyahs?.let { ArabicNumeralUtils.formatNumber(it, useIndoArabic) }
                         Text(
                             text = if (language == AppLanguage.ARABIC)
-                                "آية $currentAyah${totalAyahs?.let { " / $it" } ?: ""}"
+                                "آية $formattedAyah${formattedTotal?.let { " / $it" } ?: ""}"
                             else
                                 "Ayah $currentAyah${totalAyahs?.let { " / $it" } ?: ""}",
                             fontSize = 12.sp,
@@ -834,7 +984,7 @@ private fun FeatureCard(
             Text(
                 text = title,
                 fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
-                fontSize = if (language == AppLanguage.ARABIC) 14.sp else 11.sp,
+                fontSize = if (language == AppLanguage.ARABIC) 18.sp else 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = cardColor.copy(alpha = 0.9f),
                 maxLines = 1,

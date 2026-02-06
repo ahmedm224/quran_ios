@@ -37,11 +37,14 @@ data class DownloadsState(
     val selectedReciter: Reciter? = null,
     val selectedSurah: Surah? = null,
     val isLoading: Boolean = false,
-    val showDownloadDialog: Boolean = false
+    val showDownloadDialog: Boolean = false,
+    val downloadFullQuran: Boolean = false,  // Toggle for full Quran download mode
+    val fullQuranDownloading: Boolean = false  // True while full Quran download is in progress
 )
 
 data class DownloadsSettings(
-    val appLanguage: AppLanguage = AppLanguage.ARABIC
+    val appLanguage: AppLanguage = AppLanguage.ARABIC,
+    val useIndoArabicNumerals: Boolean = false
 )
 
 @HiltViewModel
@@ -65,7 +68,10 @@ class DownloadsViewModel @Inject constructor(
     private fun loadSettings() {
         viewModelScope.launch {
             settingsRepository.settings.collect { userSettings ->
-                _settings.value = DownloadsSettings(appLanguage = userSettings.appLanguage)
+                _settings.value = DownloadsSettings(
+                    appLanguage = userSettings.appLanguage,
+                    useIndoArabicNumerals = userSettings.useIndoArabicNumerals
+                )
             }
         }
     }
@@ -125,7 +131,11 @@ class DownloadsViewModel @Inject constructor(
     }
 
     fun hideDownloadDialog() {
-        _state.value = _state.value.copy(showDownloadDialog = false, selectedSurah = null)
+        _state.value = _state.value.copy(
+            showDownloadDialog = false,
+            selectedSurah = null,
+            downloadFullQuran = false
+        )
     }
 
     fun selectReciter(reciter: Reciter) {
@@ -136,30 +146,63 @@ class DownloadsViewModel @Inject constructor(
         _state.value = _state.value.copy(selectedSurah = surah)
     }
 
+    fun toggleFullQuranDownload(enabled: Boolean) {
+        _state.value = _state.value.copy(downloadFullQuran = enabled)
+    }
+
     fun startDownload() {
         val reciter = _state.value.selectedReciter ?: return
-        val surah = _state.value.selectedSurah ?: return
 
         viewModelScope.launch {
             try {
-                // Create a basic audio variant for download
-                val audioVariant = AudioVariant(
-                    id = "${reciter.id}_${surah.number}",
-                    reciterId = reciter.id,
-                    surahNumber = surah.number,
-                    bitrate = 128,
-                    format = AudioFormat.MP3,
-                    url = "", // Will be resolved by download manager
-                    localPath = null,
-                    durationMs = 0L,
-                    fileSizeBytes = null,
-                    hash = null
-                )
-                downloadManager.downloadAudio(reciter.id, surah.number, audioVariant)
-                Timber.d("Download started for ${surah.nameEnglish} by ${reciter.name}")
+                if (_state.value.downloadFullQuran) {
+                    // Download full Quran
+                    _state.value = _state.value.copy(fullQuranDownloading = true)
+                    downloadManager.downloadFullQuran(reciter.id)
+                    Timber.d("Full Quran download started for ${reciter.name}")
+                    _state.value = _state.value.copy(fullQuranDownloading = false)
+                } else {
+                    // Download single surah
+                    val surah = _state.value.selectedSurah ?: return@launch
+                    val audioVariant = AudioVariant(
+                        id = "${reciter.id}_${surah.number}",
+                        reciterId = reciter.id,
+                        surahNumber = surah.number,
+                        bitrate = 128,
+                        format = AudioFormat.MP3,
+                        url = "", // Will be resolved by download manager
+                        localPath = null,
+                        durationMs = 0L,
+                        fileSizeBytes = null,
+                        hash = null
+                    )
+                    downloadManager.downloadAudio(reciter.id, surah.number, audioVariant)
+                    Timber.d("Download started for ${surah.nameEnglish} by ${reciter.name}")
+                }
                 hideDownloadDialog()
             } catch (e: Exception) {
                 Timber.e(e, "Error starting download")
+                _state.value = _state.value.copy(fullQuranDownloading = false)
+            }
+        }
+    }
+
+    fun cancelAllDownloadsForReciter(reciterId: String) {
+        viewModelScope.launch {
+            try {
+                downloadManager.cancelAllDownloadsForReciter(reciterId)
+            } catch (e: Exception) {
+                Timber.e(e, "Error cancelling all downloads for reciter")
+            }
+        }
+    }
+
+    fun deleteAllDownloadsForReciter(reciterId: String) {
+        viewModelScope.launch {
+            try {
+                downloadManager.deleteAllDownloadsForReciter(reciterId)
+            } catch (e: Exception) {
+                Timber.e(e, "Error deleting all downloads for reciter")
             }
         }
     }
