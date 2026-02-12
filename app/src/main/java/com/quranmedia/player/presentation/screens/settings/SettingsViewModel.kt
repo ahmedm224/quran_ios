@@ -42,17 +42,37 @@ class SettingsViewModel @Inject constructor(
         )
 
     // Font download progress states
-    val svgDownloadProgress: StateFlow<FontDownloadProgress> = fontDownloadManager.svgDownloadProgress
     val v4DownloadProgress: StateFlow<FontDownloadProgress> = fontDownloadManager.v4DownloadProgress
 
     // Check if fonts are downloaded
-    fun isSVGDownloaded(): Boolean = fontDownloadManager.isSVGDownloaded()
     fun isV4Downloaded(): Boolean = fontDownloadManager.isV4Downloaded()
 
     // Get downloaded font sizes
-    fun getSVGFontsSize(): Long = fontDownloadManager.getSVGFontsSize()
     fun getV4FontsSize(): Long = fontDownloadManager.getV4FontsSize()
     fun formatSize(bytes: Long): String = fontDownloadManager.formatSize(bytes)
+
+    // V4 download prompt for Tajweed theme
+    private val _showV4DownloadPrompt = MutableStateFlow(false)
+    val showV4DownloadPrompt: StateFlow<Boolean> = _showV4DownloadPrompt.asStateFlow()
+
+    fun dismissV4DownloadPrompt() {
+        _showV4DownloadPrompt.value = false
+    }
+
+    fun downloadV4AndApplyTajweed(baseUrl: String = "https://alfurqan.online/api/v1/fonts") {
+        _showV4DownloadPrompt.value = false
+        viewModelScope.launch {
+            fontDownloadManager.downloadV4Fonts(baseUrl)
+            // After download completes, apply Tajweed theme
+            if (fontDownloadManager.isV4Downloaded()) {
+                settingsRepository.setReadingTheme(ReadingTheme.TAJWEED)
+                val currentSettings = settingsRepository.getCurrentSettings()
+                if (currentSettings.useQCFFont) {
+                    settingsRepository.setQCFTajweedMode(true)
+                }
+            }
+        }
+    }
 
     // Tafseer download states
     val downloadedTafseers = tafseerRepository.getDownloadedTafseers()
@@ -132,6 +152,12 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setReadingTheme(theme: ReadingTheme) {
+        // Block Tajweed theme if V4 fonts not downloaded — show download prompt instead
+        if (theme == ReadingTheme.TAJWEED && !fontDownloadManager.isV4Downloaded()) {
+            _showV4DownloadPrompt.value = true
+            return
+        }
+
         viewModelScope.launch {
             settingsRepository.setReadingTheme(theme)
 
@@ -198,24 +224,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun setUseQCFFont(enabled: Boolean) {
-        viewModelScope.launch {
-            // If enabling QCF and no fonts are downloaded, don't enable yet
-            // The UI will show the download section
-            if (enabled && !isSVGDownloaded() && !isV4Downloaded()) {
-                // Still enable so user sees the download section, but they need to download
-                settingsRepository.setUseQCFFont(true)
-            } else {
-                settingsRepository.setUseQCFFont(enabled)
-            }
-        }
-    }
-
-    /**
-     * Check if at least one font pack is available for Mushaf rendering
-     */
-    fun hasAnyFontsDownloaded(): Boolean = isSVGDownloaded() || isV4Downloaded()
-
     fun setQCFTajweedMode(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setQCFTajweedMode(enabled)
@@ -223,21 +231,9 @@ class SettingsViewModel @Inject constructor(
     }
 
     // Font download methods
-    fun downloadSVGFonts(baseUrl: String = "https://alfurqan.online/api/v1/fonts") {
-        viewModelScope.launch {
-            fontDownloadManager.downloadSVGFonts(baseUrl)
-        }
-    }
-
     fun downloadV4Fonts(baseUrl: String = "https://alfurqan.online/api/v1/fonts") {
         viewModelScope.launch {
             fontDownloadManager.downloadV4Fonts(baseUrl)
-        }
-    }
-
-    fun deleteSVGFonts() {
-        viewModelScope.launch {
-            fontDownloadManager.deleteSVGFonts()
         }
     }
 

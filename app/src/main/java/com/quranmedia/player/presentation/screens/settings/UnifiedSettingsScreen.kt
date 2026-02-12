@@ -64,8 +64,10 @@ import com.quranmedia.player.presentation.screens.reader.components.softWoodBrow
 import com.quranmedia.player.presentation.theme.ReadingThemes
 import com.quranmedia.player.presentation.util.Strings
 import com.quranmedia.player.presentation.util.layoutDirection
+import com.quranmedia.player.domain.model.AvailableTafseers
 import com.quranmedia.player.domain.model.TafseerInfo
 import com.quranmedia.player.domain.model.TafseerDownload
+import com.quranmedia.player.domain.model.TafseerType
 
 // Use creamBackground as creamPaper alias for this file
 private val creamPaper = creamBackground
@@ -100,7 +102,6 @@ fun UnifiedSettingsScreen(
     var selectedTab by remember { mutableStateOf(if (initialTab == "prayer") SettingsTab.PRAYER else SettingsTab.READING) }
 
     // Font download progress
-    val svgProgress by settingsViewModel.svgDownloadProgress.collectAsState()
     val v4Progress by settingsViewModel.v4DownloadProgress.collectAsState()
 
     var showIntervalDialog by remember { mutableStateOf(false) }
@@ -275,7 +276,6 @@ fun UnifiedSettingsScreen(
                             .padding(paddingValues),
                         settings = settings,
                         language = language,
-                        svgProgress = svgProgress,
                         v4Progress = v4Progress,
                         viewModel = settingsViewModel,
                         context = context,
@@ -336,6 +336,68 @@ fun UnifiedSettingsScreen(
             onHoursSelected = { start, end ->
                 settingsViewModel.setQuietHours(start, end)
                 showQuietHoursDialog = false
+            }
+        )
+    }
+
+    // V4 Tajweed font download prompt
+    val showV4Prompt by settingsViewModel.showV4DownloadPrompt.collectAsState()
+    if (showV4Prompt) {
+        AlertDialog(
+            onDismissRequest = { settingsViewModel.dismissV4DownloadPrompt() },
+            containerColor = creamPaper,
+            title = {
+                Text(
+                    text = if (language == AppLanguage.ARABIC) "خط التجويد مطلوب" else "Tajweed Font Required",
+                    fontWeight = FontWeight.Bold,
+                    color = darkGreen
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = if (language == AppLanguage.ARABIC)
+                            "يجب تحميل خط التجويد لاستخدام مظهر التجويد"
+                        else
+                            "The Tajweed font must be downloaded to use the Tajweed theme",
+                        color = Color(0xFF333333)
+                    )
+                    if (v4Progress.state == FontDownloadState.DOWNLOADING) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        LinearProgressIndicator(
+                            progress = { v4Progress.progress },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = islamicGreen,
+                            trackColor = Color(0xFFE0E0E0)
+                        )
+                        Text(
+                            text = "${(v4Progress.progress * 100).toInt()}%",
+                            fontSize = 12.sp,
+                            color = Color(0xFF666666),
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { settingsViewModel.downloadV4AndApplyTajweed() },
+                    enabled = v4Progress.state != FontDownloadState.DOWNLOADING,
+                    colors = ButtonDefaults.buttonColors(containerColor = islamicGreen)
+                ) {
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(if (language == AppLanguage.ARABIC) "تحميل" else "Download")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { settingsViewModel.dismissV4DownloadPrompt() }) {
+                    Text(
+                        if (language == AppLanguage.ARABIC) "إلغاء" else "Cancel",
+                        color = Color(0xFF666666)
+                    )
+                }
             }
         )
     }
@@ -420,7 +482,6 @@ private fun ReadingSettingsContent(
     modifier: Modifier = Modifier,
     settings: com.quranmedia.player.data.repository.UserSettings,
     language: AppLanguage,
-    svgProgress: FontDownloadProgress,
     v4Progress: FontDownloadProgress,
     viewModel: SettingsViewModel,
     context: android.content.Context,
@@ -569,138 +630,54 @@ private fun ReadingSettingsContent(
             title = if (language == AppLanguage.ARABIC) "إعدادات العرض" else "Display Settings",
             language = language
         ) {
-            SettingsSwitchItemWood(
-                title = if (language == AppLanguage.ARABIC) "خط المصحف" else "Mushaf Font",
-                subtitle = if (language == AppLanguage.ARABIC)
-                    "عرض القرآن بخط المصحف الشريف"
-                else
-                    "Display Quran in traditional Mushaf font",
-                icon = Icons.Default.MenuBook,
-                checked = settings.useQCFFont,
-                onCheckedChange = { enabled ->
-                    viewModel.setUseQCFFont(enabled)
-                },
-                language = language
+            // Tajweed font download
+            Text(
+                text = if (language == AppLanguage.ARABIC) "خطوط التجويد" else "Tajweed Font",
+                fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = islamicGreen,
+                modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            if (settings.useQCFFont) {
-                val hasAnyFonts = viewModel.hasAnyFontsDownloaded()
+            FontDownloadItemWood(
+                title = if (language == AppLanguage.ARABIC) "خط المصحف بالتجويد" else "Mushaf Tajweed Font",
+                subtitle = if (language == AppLanguage.ARABIC) "~159 ميجابايت" else "~159 MB",
+                progress = v4Progress,
+                language = language,
+                formatSize = { viewModel.formatSize(it) },
+                downloadedSize = viewModel.getV4FontsSize(),
+                onDownload = { viewModel.downloadV4Fonts() },
+                onDelete = { viewModel.deleteV4Fonts() }
+            )
 
-                Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = if (language == AppLanguage.ARABIC)
+                    "حمّل خطوط التجويد لعرض ألوان التجويد. اختر مظهر التجويد من مظهر القراءة."
+                else
+                    "Download Tajweed font to display Tajweed colors. Select Tajweed theme from Reading Theme.",
+                fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                fontSize = 11.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(top = 8.dp)
+            )
 
-                if (!hasAnyFonts) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFFFFF3E0)
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Warning,
-                                contentDescription = null,
-                                tint = Color(0xFFE65100),
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = if (language == AppLanguage.ARABIC)
-                                    "يجب تحميل الخطوط أولاً لاستخدام خط المصحف"
-                                else
-                                    "You must download fonts first to use Mushaf font",
-                                fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
-                                fontSize = 13.sp,
-                                color = Color(0xFFE65100),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                color = Color.Gray.copy(alpha = 0.2f)
+            )
 
-                if (hasAnyFonts) {
-                    Text(
-                        text = if (language == AppLanguage.ARABIC)
-                            "اختر مظهر التجويد من قسم مظهر القراءة لعرض ألوان التجويد"
-                        else
-                            "Select Tajweed theme above to display Tajweed colors",
-                        fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
-                        fontSize = 11.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(start = 46.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-
-                Text(
-                    text = if (language == AppLanguage.ARABIC) "تحميل الخطوط" else "Font Downloads",
-                    fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = islamicGreen,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                FontDownloadItemWood(
-                    title = if (language == AppLanguage.ARABIC) "خط المصحف" else "Mushaf Font",
-                    subtitle = if (language == AppLanguage.ARABIC) "~100 ميجابايت" else "~100 MB",
-                    progress = svgProgress,
-                    language = language,
-                    formatSize = { viewModel.formatSize(it) },
-                    downloadedSize = viewModel.getSVGFontsSize(),
-                    onDownload = { viewModel.downloadSVGFonts() },
-                    onDelete = { viewModel.deleteSVGFonts() }
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                FontDownloadItemWood(
-                    title = if (language == AppLanguage.ARABIC) "خط المصحف بالتجويد" else "Mushaf Tajweed Font",
-                    subtitle = if (language == AppLanguage.ARABIC) "~159 ميجابايت" else "~159 MB",
-                    progress = v4Progress,
-                    language = language,
-                    formatSize = { viewModel.formatSize(it) },
-                    downloadedSize = viewModel.getV4FontsSize(),
-                    onDownload = { viewModel.downloadV4Fonts() },
-                    onDelete = { viewModel.deleteV4Fonts() }
-                )
-
-                Text(
-                    text = if (language == AppLanguage.ARABIC)
-                        "قم بتحميل الخطوط لاستخدام خط المصحف. يمكنك حذفها لتوفير المساحة."
-                    else
-                        "Download fonts to use Mushaf font. You can delete them to save space.",
-                    fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
-                    fontSize = 11.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-
-            if (!settings.useQCFFont) {
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    color = Color.Gray.copy(alpha = 0.2f)
-                )
-
-                SettingsSwitchItemWood(
-                    title = if (language == AppLanguage.ARABIC) "خط عريض" else "Bold Font",
-                    subtitle = if (language == AppLanguage.ARABIC)
-                        "استخدام خط عريض للقرآن في وضع القراءة"
-                    else
-                        "Use bold font for Quran text in reading mode",
-                    icon = Icons.Default.FormatBold,
-                    checked = settings.useBoldFont,
-                    onCheckedChange = { viewModel.setUseBoldFont(it) },
-                    language = language
-                )
-            }
+            SettingsSwitchItemWood(
+                title = if (language == AppLanguage.ARABIC) "خط عريض" else "Bold Font",
+                subtitle = if (language == AppLanguage.ARABIC)
+                    "استخدام خط عريض للقرآن في وضع القراءة"
+                else
+                    "Use bold font for Quran text in reading mode",
+                icon = Icons.Default.FormatBold,
+                checked = settings.useBoldFont,
+                onCheckedChange = { viewModel.setUseBoldFont(it) },
+                language = language
+            )
 
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 8.dp),
@@ -775,52 +752,15 @@ private fun ReadingSettingsContent(
             title = if (language == AppLanguage.ARABIC) "تحميل التفسير" else "Tafseer Downloads",
             language = language
         ) {
-            val availableTafseers = viewModel.getAvailableTafseers()
-            val downloadedIds = downloadedTafseers.map { it.tafseerInfo.id }.toSet()
-
-            Text(
-                text = if (language == AppLanguage.ARABIC)
-                    "حمّل التفسير للقراءة بدون اتصال"
-                else
-                    "Download tafseer for offline reading",
-                fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
-                fontSize = 11.sp,
-                color = Color.Gray,
-                modifier = Modifier.padding(bottom = 8.dp)
+            TafseerDropdownSection(
+                downloadedTafseers = downloadedTafseers,
+                tafseerProgress = tafseerProgress,
+                downloadingTafseerId = downloadingTafseerId,
+                language = language,
+                viewModel = viewModel,
+                onDownloadTafseer = onDownloadTafseer,
+                onDeleteTafseer = onDeleteTafseer
             )
-
-            // Single card containing all tafseer items
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Column {
-                    availableTafseers.forEachIndexed { index, tafseer ->
-                        val isDownloaded = downloadedIds.contains(tafseer.id)
-                        val isDownloading = downloadingTafseerId == tafseer.id
-                        val progress = tafseerProgress[tafseer.id]
-
-                        TafseerDownloadItemWood(
-                            tafseer = tafseer,
-                            isDownloaded = isDownloaded,
-                            isDownloading = isDownloading,
-                            progress = progress,
-                            language = language,
-                            onDownload = { onDownloadTafseer(tafseer.id) },
-                            onDelete = { onDeleteTafseer(tafseer.id) }
-                        )
-
-                        if (index < availableTafseers.lastIndex) {
-                            HorizontalDivider(
-                                color = Color.Gray.copy(alpha = 0.15f),
-                                thickness = 0.5.dp
-                            )
-                        }
-                    }
-                }
-            }
         }
 
         // Language Section
@@ -2041,136 +1981,250 @@ private fun FontDownloadItemWood(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TafseerDownloadItemWood(
-    tafseer: TafseerInfo,
-    isDownloaded: Boolean,
-    isDownloading: Boolean,
-    progress: Float?,
+private fun TafseerDropdownSection(
+    downloadedTafseers: List<TafseerDownload>,
+    tafseerProgress: Map<String, Float>,
+    downloadingTafseerId: String?,
     language: AppLanguage,
-    onDownload: () -> Unit,
-    onDelete: () -> Unit
+    viewModel: SettingsViewModel,
+    onDownloadTafseer: (String) -> Unit,
+    onDeleteTafseer: (String) -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                if (isDownloaded) lightGreen.copy(alpha = 0.08f) else Color.Transparent
-            )
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+    val availableTafseers = AvailableTafseers.getSortedByLanguage(language.name.lowercase())
+    val downloadedIds = downloadedTafseers.map { it.tafseerInfo.id }.toSet()
+    var expanded by remember { mutableStateOf(false) }
+    var selectedTafseer by remember { mutableStateOf(availableTafseers.firstOrNull()) }
+
+    val isArabic = language == AppLanguage.ARABIC
+
+    Text(
+        text = if (isArabic) "حمّل التفسير للقراءة بدون اتصال" else "Download tafseer for offline reading",
+        fontFamily = if (isArabic) scheherazadeFont else null,
+        fontSize = 11.sp,
+        color = Color.Gray,
+        modifier = Modifier.padding(bottom = 8.dp)
+    )
+
+    // Dropdown + Download/Delete button row
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded },
+            modifier = Modifier.weight(1f)
         ) {
-            // Left side: Language badge + Name
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                // Compact language badge
-                Text(
-                    text = if (tafseer.language == "arabic") "ع" else "EN",
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier
-                        .background(
-                            color = if (tafseer.language == "arabic") goldAccent else islamicGreen,
-                            shape = RoundedCornerShape(3.dp)
-                        )
-                        .padding(horizontal = 5.dp, vertical = 2.dp)
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Tafseer name
-                Text(
-                    text = if (tafseer.language == "arabic") tafseer.nameArabic ?: tafseer.nameEnglish else tafseer.nameEnglish,
-                    fontFamily = if (tafseer.language == "arabic") scheherazadeFont else null,
+            OutlinedTextField(
+                value = selectedTafseer?.let {
+                    if (it.language == "arabic") it.nameArabic ?: it.nameEnglish else it.nameEnglish
+                } ?: "",
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(),
+                textStyle = LocalTextStyle.current.copy(
                     fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = coffeeBrown,
-                    maxLines = 1
-                )
-            }
+                    fontFamily = if (selectedTafseer?.language == "arabic") scheherazadeFont else null
+                ),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                leadingIcon = selectedTafseer?.let { tafseer ->
+                    if (downloadedIds.contains(tafseer.id)) {
+                        { Icon(Icons.Default.CheckCircle, null, tint = islamicGreen, modifier = Modifier.size(18.dp)) }
+                    } else null
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = islamicGreen,
+                    unfocusedBorderColor = Color.LightGray
+                ),
+                singleLine = true
+            )
 
-            // Right side: Status/Action
-            when {
-                isDownloading -> {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "${((progress ?: 0f) * 100).toInt()}%",
-                            fontSize = 11.sp,
-                            color = islamicGreen
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            color = islamicGreen,
-                            strokeWidth = 2.dp
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                // Group: Word Meanings & Grammar (shaded)
+                val wordAndGrammar = availableTafseers.filter {
+                    it.type == TafseerType.WORD_MEANING || it.type == TafseerType.GRAMMAR
+                }
+                val tafseers = availableTafseers.filter { it.type == TafseerType.TAFSEER }
+
+                if (tafseers.isNotEmpty()) {
+                    tafseers.forEach { tafseer ->
+                        val isDownloaded = downloadedIds.contains(tafseer.id)
+                        DropdownMenuItem(
+                            text = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    // Language badge
+                                    Text(
+                                        text = if (tafseer.language == "arabic") "ع" else "EN",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        modifier = Modifier
+                                            .background(
+                                                color = if (tafseer.language == "arabic") goldAccent else islamicGreen,
+                                                shape = RoundedCornerShape(3.dp)
+                                            )
+                                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                    Text(
+                                        text = if (tafseer.language == "arabic") tafseer.nameArabic ?: tafseer.nameEnglish else tafseer.nameEnglish,
+                                        fontFamily = if (tafseer.language == "arabic") scheherazadeFont else null,
+                                        fontSize = 13.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    if (isDownloaded) {
+                                        Icon(
+                                            Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = islamicGreen,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            },
+                            onClick = {
+                                selectedTafseer = tafseer
+                                expanded = false
+                            }
                         )
                     }
                 }
-                isDownloaded -> {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = islamicGreen,
-                            modifier = Modifier.size(16.dp)
+
+                // Divider before word meanings / grammar section
+                if (wordAndGrammar.isNotEmpty() && tafseers.isNotEmpty()) {
+                    HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
+                }
+
+                // Word Meanings & Grammar items with shaded background
+                wordAndGrammar.forEach { tafseer ->
+                    val isDownloaded = downloadedIds.contains(tafseer.id)
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Type badge
+                                Text(
+                                    text = if (tafseer.type == TafseerType.GRAMMAR) {
+                                        if (isArabic) "نحو" else "Gram"
+                                    } else {
+                                        if (tafseer.language == "arabic") "ع" else "EN"
+                                    },
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    modifier = Modifier
+                                        .background(
+                                            color = if (tafseer.type == TafseerType.GRAMMAR) coffeeBrown
+                                            else if (tafseer.language == "arabic") goldAccent else islamicGreen,
+                                            shape = RoundedCornerShape(3.dp)
+                                        )
+                                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                                )
+                                Text(
+                                    text = if (tafseer.language == "arabic") tafseer.nameArabic ?: tafseer.nameEnglish else tafseer.nameEnglish,
+                                    fontFamily = if (tafseer.language == "arabic") scheherazadeFont else null,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (isDownloaded) {
+                                    Icon(
+                                        Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = islamicGreen,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            selectedTafseer = tafseer
+                            expanded = false
+                        },
+                        modifier = Modifier.background(softWoodBrown.copy(alpha = 0.15f))
+                    )
+                }
+            }
+        }
+
+        // Download or Delete button
+        val selected = selectedTafseer
+        if (selected != null) {
+            val isSelectedDownloaded = downloadedIds.contains(selected.id)
+            val isSelectedDownloading = downloadingTafseerId == selected.id
+            val progress = tafseerProgress[selected.id]
+
+            when {
+                isSelectedDownloading -> {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(44.dp)) {
+                        CircularProgressIndicator(
+                            progress = { progress ?: 0f },
+                            modifier = Modifier.size(32.dp),
+                            color = islamicGreen,
+                            strokeWidth = 3.dp
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        IconButton(
-                            onClick = onDelete,
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = if (language == AppLanguage.ARABIC) "حذف" else "Delete",
-                                tint = Color.Red.copy(alpha = 0.6f),
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
+                        Text(
+                            text = "${((progress ?: 0f) * 100).toInt()}%",
+                            fontSize = 8.sp,
+                            color = islamicGreen,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                isSelectedDownloaded -> {
+                    IconButton(
+                        onClick = { onDeleteTafseer(selected.id) },
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = if (isArabic) "حذف" else "Delete",
+                            tint = Color.Red.copy(alpha = 0.6f)
+                        )
                     }
                 }
                 else -> {
-                    TextButton(
-                        onClick = onDownload,
-                        modifier = Modifier.height(28.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    IconButton(
+                        onClick = { onDownloadTafseer(selected.id) },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(islamicGreen, RoundedCornerShape(8.dp))
                     ) {
                         Icon(
                             Icons.Default.Download,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = islamicGreen
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (language == AppLanguage.ARABIC) "تحميل" else "Get",
-                            fontSize = 11.sp,
-                            color = islamicGreen
+                            contentDescription = if (isArabic) "تحميل" else "Download",
+                            tint = Color.White
                         )
                     }
                 }
             }
         }
+    }
 
-        // Progress bar when downloading
-        if (isDownloading) {
-            Spacer(modifier = Modifier.height(4.dp))
-            LinearProgressIndicator(
-                progress = { progress ?: 0f },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .clip(RoundedCornerShape(2.dp)),
-                color = islamicGreen,
-                trackColor = Color.Gray.copy(alpha = 0.2f)
-            )
-        }
+    // Download progress bar
+    if (downloadingTafseerId != null && selectedTafseer?.id == downloadingTafseerId) {
+        val progress = tafseerProgress[downloadingTafseerId]
+        Spacer(modifier = Modifier.height(6.dp))
+        LinearProgressIndicator(
+            progress = { progress ?: 0f },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .clip(RoundedCornerShape(2.dp)),
+            color = islamicGreen,
+            trackColor = Color.Gray.copy(alpha = 0.2f)
+        )
     }
 }
 

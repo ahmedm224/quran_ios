@@ -474,7 +474,7 @@ private fun QCFSurahHeaderWithSVG(
     // Select SVG based on theme (same logic as existing CompactSurahHeader)
     val svgFileName = when (readingTheme) {
         ReadingTheme.NIGHT -> "surah_header_dark.svg"
-        ReadingTheme.SEPIA -> "surah_header_brown.svg"
+        ReadingTheme.SEPIA -> "surah_header_green.svg"
         ReadingTheme.OCEAN -> "surah_header_blue.svg"
         ReadingTheme.CUSTOM -> "surah_header_green.svg"
         ReadingTheme.TAJWEED -> "surah_header_green.svg"

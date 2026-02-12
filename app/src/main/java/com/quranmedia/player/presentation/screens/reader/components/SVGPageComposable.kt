@@ -399,14 +399,18 @@ private fun recolorSvg(svgText: String, theme: ReadingThemeColors, muteOrnaments
     val textColor = colorToHex(theme.textPrimary)
     val bgColor = colorToHex(theme.background)
 
-    // Pages 1-2: muted accent (30% accent blended with 70% background)
+    // Blend accent with background so ornament circles stay light enough for ayah numbers to be readable,
+    // but strong enough to remain visible on bright custom theme colors
     val ornamentColor = if (muteOrnaments) {
-        val r = theme.accent.red * 0.3f + theme.background.red * 0.7f
-        val g = theme.accent.green * 0.3f + theme.background.green * 0.7f
-        val b = theme.accent.blue * 0.3f + theme.background.blue * 0.7f
+        val r = theme.accent.red * 0.2f + theme.background.red * 0.8f
+        val g = theme.accent.green * 0.2f + theme.background.green * 0.8f
+        val b = theme.accent.blue * 0.2f + theme.background.blue * 0.8f
         colorToHex(Color(r, g, b))
     } else {
-        colorToHex(theme.accent)
+        val r = theme.accent.red * 0.4f + theme.background.red * 0.6f
+        val g = theme.accent.green * 0.4f + theme.background.green * 0.6f
+        val b = theme.accent.blue * 0.4f + theme.background.blue * 0.6f
+        colorToHex(Color(r, g, b))
     }
 
     var out = svgText

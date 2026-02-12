@@ -1124,6 +1124,7 @@ fun QuranReaderScreen(
         onDismiss = { viewModel.dismissTafseer() },
         onSelectTafseer = { tafseerId -> viewModel.selectTafseer(tafseerId) },
         onCopy = { /* Toast or snackbar can be added here */ },
+        onDownloadTafseer = { tafseerId -> viewModel.downloadTafseerFromModal(tafseerId) },
         onNavigateToDownload = onNavigateToSettings
     )
 }

@@ -16,8 +16,8 @@ android {
         applicationId = "com.quranmedia.player"
         minSdk = 27
         targetSdk = 35
-        versionCode = 23
-        versionName = "2.2.0"
+        versionCode = 24
+        versionName = "2.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -91,6 +91,9 @@ dependencies {
     // Coil for image loading with SVG support
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation("io.coil-kt:coil-svg:2.5.0")
+
+    // AndroidSVG for direct SVG-to-Canvas rendering (used for Mushaf SVG pages)
+    implementation("com.caverock:androidsvg-aar:1.4")
 
     // ExoPlayer for media playback
     implementation("androidx.media3:media3-exoplayer:1.2.1")

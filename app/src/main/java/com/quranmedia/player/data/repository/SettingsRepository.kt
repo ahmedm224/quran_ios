@@ -19,8 +19,8 @@ enum class ReadingTheme(
     val arabicLabel: String,
     val englishLabel: String
 ) {
+    SEPIA("sepia", "افتراضي", "Default"),
     LIGHT("light", "فاتح", "Light"),
-    SEPIA("sepia", "بني فاتح", "Sepia"),
     NIGHT("night", "ليلي", "Night"),
     PAPER("paper", "ورقي", "Paper"),
     OCEAN("ocean", "محيط", "Ocean"),
@@ -92,7 +92,7 @@ data class UserSettings(
     val hapticFeedbackIntensity: Int = 50,
     val continuousPlaybackEnabled: Boolean = true,
     val appLanguage: AppLanguage = AppLanguage.ARABIC,  // Default to Arabic
-    val readingTheme: ReadingTheme = ReadingTheme.LIGHT,  // Reading theme
+    val readingTheme: ReadingTheme = ReadingTheme.SEPIA,  // Default theme
     // Custom theme colors (ARGB format)
     val customBackgroundColor: Long = 0xFFFFFFF5,  // Default cream
     val customTextColor: Long = 0xFF000000,  // Default black
@@ -196,7 +196,7 @@ class SettingsRepository @Inject constructor(
             hapticFeedbackIntensity = prefs.getInt("hapticFeedbackIntensity", 50),
             continuousPlaybackEnabled = prefs.getBoolean("continuousPlaybackEnabled", true),
             appLanguage = AppLanguage.entries.find { it.code == prefs.getString("appLanguage", "ar") } ?: AppLanguage.ARABIC,
-            readingTheme = ReadingTheme.entries.find { it.id == prefs.getString("readingTheme", "light") } ?: ReadingTheme.LIGHT,
+            readingTheme = ReadingTheme.entries.find { it.id == prefs.getString("readingTheme", "sepia") } ?: ReadingTheme.SEPIA,
             readingReminderEnabled = prefs.getBoolean("readingReminderEnabled", false),
             readingReminderInterval = ReminderInterval.entries.find { it.hours == prefs.getInt("readingReminderInterval", 2) } ?: ReminderInterval.TWO_HOURS,
             quietHoursStart = prefs.getInt("quietHoursStart", 22),

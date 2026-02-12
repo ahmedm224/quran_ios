@@ -17,6 +17,7 @@ import com.quranmedia.player.domain.model.TafseerType
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -133,6 +134,13 @@ class TafseerRepository @Inject constructor(
      */
     fun isDownloadedFlow(tafseerId: String): Flow<Boolean> {
         return tafseerDao.isDownloadedFlow(tafseerId)
+    }
+
+    /**
+     * Get set of all downloaded tafseer IDs
+     */
+    suspend fun getDownloadedTafseerIds(): Set<String> {
+        return tafseerDao.getAllDownloads().first().map { it.tafseerId }.toSet()
     }
 
     /**

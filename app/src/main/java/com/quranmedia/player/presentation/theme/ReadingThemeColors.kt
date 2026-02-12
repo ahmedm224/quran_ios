@@ -44,22 +44,22 @@ object ReadingThemes {
         isDark = false
     )
 
-    // Sepia theme - Warm paper-like
+    // Default theme - Warm Mushaf paper
     val Sepia = ReadingThemeColors(
-        background = Color(0xFFF5E6D3),      // Warm sepia
-        surface = Color(0xFFFAF0E6),         // Linen
-        textPrimary = Color(0xFF3E2723),     // Brown text
-        textSecondary = Color(0xFF5D4037),
-        accent = Color(0xFF6D4C41),          // Brown accent
-        accentLight = Color(0xFFA1887F),
-        divider = Color(0xFFD7CCC8),
-        cardBackground = Color(0xFFFAF0E6),
-        highlightBackground = Color(0xFFEFEBE9),
+        background = Color(0xFFF0EDE4),      // Warm Mushaf paper
+        surface = Color(0xFFF5F2EB),
+        textPrimary = Color(0xFF000000),     // Black text
+        textSecondary = Color(0xFF444444),
+        accent = Color(0xFFD6C4A6),          // Warm beige header #D6C4A6
+        accentLight = Color(0xFFE2D5BD),
+        divider = Color(0xFFD8D4CA),
+        cardBackground = Color(0xFFF5F2EB),
+        highlightBackground = Color(0xFFF5EFE0),
         highlight = Color(0xFFBF360C),       // Deep orange for playing ayah
-        ayahMarker = Color(0xFF8D6E63),
-        topBarBackground = Color(0xFF5D4037),
-        topBarContent = Color(0xFFFAF0E6),
-        bottomBarBackground = Color(0xFFFAF0E6),
+        ayahMarker = Color(0xFFD6C4A6),
+        topBarBackground = Color(0xFFD6C4A6),
+        topBarContent = Color(0xFF000000),
+        bottomBarBackground = Color(0xFFF0EDE4),
         isDark = false
     )
 

@@ -72,7 +72,7 @@
         <activity
             android:name=".presentation.MainActivity"
             android:exported="false"
-            android:screenOrientation="fullSensor"
+            android:screenOrientation="unspecified"
             android:configChanges="screenSize|screenLayout|orientation|keyboardHidden"
             android:theme="@style/Theme.QuranMediaPlayer"
             android:windowSoftInputMode="adjustResize" />

@@ -62,6 +62,10 @@ data class TafseerModalState(
     val surahName: String = "",
     val ayahText: String = "",
     val availableTafseers: List<Pair<TafseerInfo, TafseerContent>> = emptyList(),
+    val allTafseers: List<TafseerInfo> = emptyList(),  // All tafseers (downloaded + not downloaded)
+    val downloadedIds: Set<String> = emptySet(),
+    val downloadingTafseerId: String? = null,
+    val downloadProgress: Float = 0f,
     val selectedTafseerId: String? = null,
     val isLoading: Boolean = false,
     val error: String? = null
@@ -185,6 +189,7 @@ fun TafseerModal(
     onDismiss: () -> Unit,
     onSelectTafseer: (String) -> Unit,
     onCopy: (String) -> Unit,
+    onDownloadTafseer: (String) -> Unit = {},
     onNavigateToDownload: () -> Unit = {}
 ) {
     val clipboardManager = LocalClipboardManager.current
@@ -262,12 +267,16 @@ fun TafseerModal(
                             onClose = onDismiss
                         )
 
-                        // Tafseer Selector - Always show if there are tafseers
-                        if (state.availableTafseers.isNotEmpty()) {
+                        // Tafseer Selector - show all tafseers with download option
+                        if (state.allTafseers.isNotEmpty() || state.availableTafseers.isNotEmpty()) {
                             TafseerSelector(
-                                tafseers = state.availableTafseers.map { it.first },
+                                tafseers = state.allTafseers.ifEmpty { state.availableTafseers.map { it.first } },
                                 selectedId = state.selectedTafseerId ?: state.availableTafseers.firstOrNull()?.first?.id,
-                                onSelect = onSelectTafseer
+                                downloadedIds = state.downloadedIds,
+                                downloadingTafseerId = state.downloadingTafseerId,
+                                downloadProgress = state.downloadProgress,
+                                onSelect = onSelectTafseer,
+                                onDownload = onDownloadTafseer
                             )
                         }
 
@@ -443,46 +452,17 @@ fun TafseerModal(
                                             tint = tafseerTextSecondary.copy(alpha = 0.5f),
                                             modifier = Modifier.size(48.dp)
                                         )
-                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Spacer(modifier = Modifier.height(12.dp))
                                         Text(
                                             text = if (language == AppLanguage.ARABIC)
-                                                "لم يتم تحميل أي تفسير"
+                                                "اختر تفسيراً من القائمة أعلاه للتحميل"
                                             else
-                                                "No tafseer downloaded",
+                                                "Select a tafseer from the list above to download",
                                             fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            color = tafseerTextPrimary,
+                                            fontSize = 14.sp,
+                                            color = tafseerTextSecondary,
                                             textAlign = TextAlign.Center
                                         )
-                                        Spacer(modifier = Modifier.height(16.dp))
-
-                                        // Download button
-                                        Button(
-                                            onClick = {
-                                                onDismiss()
-                                                onNavigateToDownload()
-                                            },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = tafseerAccent
-                                            ),
-                                            shape = RoundedCornerShape(12.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Download,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = if (language == AppLanguage.ARABIC)
-                                                    "تحميل التفسير"
-                                                else
-                                                    "Download Tafseer",
-                                                fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
                                     }
                                 }
                             }
@@ -607,10 +587,15 @@ private fun TafseerModalHeader(
 private fun TafseerSelector(
     tafseers: List<TafseerInfo>,
     selectedId: String?,
-    onSelect: (String) -> Unit
+    downloadedIds: Set<String>,
+    downloadingTafseerId: String?,
+    downloadProgress: Float,
+    onSelect: (String) -> Unit,
+    onDownload: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedTafseer = tafseers.find { it.id == selectedId } ?: tafseers.firstOrNull()
+    val isSelectedDownloaded = selectedTafseer?.let { downloadedIds.contains(it.id) } ?: false
 
     Box(
         modifier = Modifier
@@ -675,7 +660,30 @@ private fun TafseerSelector(
                     }
                 }
 
-                // Dropdown arrow
+                // Download button or dropdown arrow
+                if (selectedTafseer != null && !isSelectedDownloaded) {
+                    if (downloadingTafseerId == selectedTafseer.id) {
+                        CircularProgressIndicator(
+                            progress = { downloadProgress },
+                            modifier = Modifier.size(22.dp),
+                            color = tafseerAccent,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        IconButton(
+                            onClick = { onDownload(selectedTafseer.id) },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Download,
+                                contentDescription = "Download",
+                                tint = tafseerAccent,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
                 Icon(
                     imageVector = if (expanded)
                         Icons.Filled.KeyboardArrowUp
@@ -696,60 +704,138 @@ private fun TafseerSelector(
                 .fillMaxWidth(0.85f)
                 .background(Color.White, RoundedCornerShape(12.dp))
         ) {
-            tafseers.forEach { tafseer ->
-                val isSelected = tafseer.id == selectedId
-                val isArabic = tafseer.language == "arabic"
+            // Tafseers first
+            val tafseerItems = tafseers.filter { it.type == TafseerType.TAFSEER }
+            val wordAndGrammar = tafseers.filter { it.type == TafseerType.WORD_MEANING || it.type == TafseerType.GRAMMAR }
 
-                DropdownMenuItem(
-                    onClick = {
+            tafseerItems.forEach { tafseer ->
+                TafseerDropdownItem(
+                    tafseer = tafseer,
+                    isSelected = tafseer.id == selectedId,
+                    isDownloaded = downloadedIds.contains(tafseer.id),
+                    isDownloading = downloadingTafseerId == tafseer.id,
+                    downloadProgress = if (downloadingTafseerId == tafseer.id) downloadProgress else 0f,
+                    shadedBackground = false,
+                    onSelect = {
                         onSelect(tafseer.id)
                         expanded = false
                     },
-                    text = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            // Language badge
-                            Text(
-                                text = if (isArabic) "ع" else "EN",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isArabic) tafseerGold else tafseerAccent,
-                                modifier = Modifier
-                                    .background(
-                                        color = if (isArabic) tafseerGold.copy(alpha = 0.15f)
-                                        else tafseerAccent.copy(alpha = 0.1f),
-                                        shape = RoundedCornerShape(4.dp)
-                                    )
-                                    .padding(horizontal = 5.dp, vertical = 2.dp)
-                            )
+                    onDownload = { onDownload(tafseer.id) }
+                )
+            }
 
-                            // Tafseer name
-                            Text(
-                                text = if (isArabic) tafseer.nameArabic ?: tafseer.nameEnglish else tafseer.nameEnglish,
-                                fontFamily = if (isArabic) scheherazadeFont else null,
-                                fontSize = 14.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) tafseerAccent else tafseerTextPrimary
-                            )
-                        }
+            // Divider before word meanings / grammar
+            if (wordAndGrammar.isNotEmpty() && tafseerItems.isNotEmpty()) {
+                HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
+            }
+
+            wordAndGrammar.forEach { tafseer ->
+                TafseerDropdownItem(
+                    tafseer = tafseer,
+                    isSelected = tafseer.id == selectedId,
+                    isDownloaded = downloadedIds.contains(tafseer.id),
+                    isDownloading = downloadingTafseerId == tafseer.id,
+                    downloadProgress = if (downloadingTafseerId == tafseer.id) downloadProgress else 0f,
+                    shadedBackground = true,
+                    onSelect = {
+                        onSelect(tafseer.id)
+                        expanded = false
                     },
-                    leadingIcon = if (isSelected) {
-                        {
-                            Icon(
-                                Icons.Filled.Check,
-                                contentDescription = null,
-                                tint = tafseerAccent,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    } else null,
-                    modifier = Modifier.background(
-                        if (isSelected) tafseerAccent.copy(alpha = 0.08f) else Color.Transparent
-                    )
+                    onDownload = { onDownload(tafseer.id) }
                 )
             }
         }
     }
+}
+
+@Composable
+private fun TafseerDropdownItem(
+    tafseer: TafseerInfo,
+    isSelected: Boolean,
+    isDownloaded: Boolean,
+    isDownloading: Boolean,
+    downloadProgress: Float,
+    shadedBackground: Boolean,
+    onSelect: () -> Unit,
+    onDownload: () -> Unit
+) {
+    val isArabic = tafseer.language == "arabic"
+
+    DropdownMenuItem(
+        onClick = {
+            if (isDownloaded) onSelect() else onDownload()
+        },
+        text = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Language/type badge
+                Text(
+                    text = when {
+                        tafseer.type == TafseerType.GRAMMAR -> "نحو"
+                        isArabic -> "ع"
+                        else -> "EN"
+                    },
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isArabic || tafseer.type == TafseerType.GRAMMAR) tafseerGold else tafseerAccent,
+                    modifier = Modifier
+                        .background(
+                            color = if (isArabic || tafseer.type == TafseerType.GRAMMAR) tafseerGold.copy(alpha = 0.15f)
+                            else tafseerAccent.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(4.dp)
+                        )
+                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                )
+
+                // Tafseer name
+                Text(
+                    text = if (isArabic) tafseer.nameArabic ?: tafseer.nameEnglish else tafseer.nameEnglish,
+                    fontFamily = if (isArabic) scheherazadeFont else null,
+                    fontSize = 13.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (!isDownloaded) tafseerTextSecondary
+                    else if (isSelected) tafseerAccent else tafseerTextPrimary,
+                    modifier = Modifier.weight(1f)
+                )
+
+                // Status icon
+                when {
+                    isDownloading -> {
+                        CircularProgressIndicator(
+                            progress = { downloadProgress },
+                            modifier = Modifier.size(16.dp),
+                            color = tafseerAccent,
+                            strokeWidth = 2.dp
+                        )
+                    }
+                    isDownloaded -> {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint = tafseerAccent,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    else -> {
+                        Icon(
+                            Icons.Default.Download,
+                            contentDescription = null,
+                            tint = tafseerTextSecondary.copy(alpha = 0.5f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        },
+        modifier = Modifier.background(
+            when {
+                isSelected && isDownloaded -> tafseerAccent.copy(alpha = 0.08f)
+                shadedBackground -> tafseerHeaderBackground.copy(alpha = 0.5f)
+                else -> Color.Transparent
+            }
+        )
+    )
 }

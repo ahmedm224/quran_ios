@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -89,42 +90,103 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
         @Volatile
         private var currentNotificationId: Int? = null
 
+        // Track if we've received initial sensor reading (to establish baseline)
+        private var hasInitialReading = false
+        private var flipDetectionEnabled = false
+
+        // Volume change receiver - catches any volume button press
+        private val volumeChangeReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == "android.media.VOLUME_CHANGED_ACTION") {
+                    val isPlaying = try { mediaPlayer?.isPlaying == true } catch (e: Exception) { false }
+                    if (isPlaying) {
+                        Timber.d("Volume button pressed - stopping athan")
+                        stopFallbackAthanAndDismissNotification()
+                    }
+                }
+            }
+        }
+
+        // Screen off receiver - catches power button press
+        private val screenOffReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == Intent.ACTION_SCREEN_OFF) {
+                    val isPlaying = try { mediaPlayer?.isPlaying == true } catch (e: Exception) { false }
+                    if (isPlaying) {
+                        Timber.d("Power button pressed (screen off) - stopping athan")
+                        stopFallbackAthanAndDismissNotification()
+                    }
+                }
+            }
+        }
+
+        @Volatile
+        private var receiversRegistered = false
+
         // Sensor listener for flip detection
         private val sensorListener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent?) {
-                // Check if athan is playing - use mediaPlayer reference existence as backup
-                val player = mediaPlayer
-                if (player == null) return
+                if (event == null) return
 
-                // Allow slight timing window - check if player exists even if not yet playing
-                try {
-                    if (!player.isPlaying) return
-                } catch (e: IllegalStateException) {
-                    // Player in invalid state
-                    return
-                }
-
-                when (event?.sensor?.type) {
+                when (event.sensor?.type) {
                     Sensor.TYPE_ACCELEROMETER -> {
                         val z = event.values[2]
-                        // Phone is face down when Z axis is significantly negative
-                        // Z < -7 means gravity is pulling "up" relative to screen = face down
-                        // Using -7 instead of -8 for better sensitivity
-                        if (z < -7f && lastZ >= -7f) {
-                            Timber.d("Phone flipped face down (z=$z, lastZ=$lastZ) - stopping athan")
-                            stopFallbackAthanAndDismissNotification()
+
+                        // First reading establishes the baseline
+                        if (!hasInitialReading) {
+                            lastZ = z
+                            hasInitialReading = true
+                            Timber.d("Initial accelerometer reading: z=$z")
+                            // Enable flip detection after a short delay to avoid false triggers
+                            mainHandler?.postDelayed({
+                                flipDetectionEnabled = true
+                                Timber.d("Flip detection now enabled, lastZ=$lastZ")
+                            }, 500)
+                            return
+                        }
+
+                        // Only check for flip if detection is enabled and athan is playing
+                        if (flipDetectionEnabled) {
+                            val player = mediaPlayer
+                            val isPlaying = try {
+                                player?.isPlaying == true
+                            } catch (e: Exception) {
+                                false
+                            }
+
+                            if (isPlaying) {
+                                // Phone is face down when Z axis is significantly negative
+                                // Z < -7 means gravity is pulling "up" relative to screen = face down
+                                if (z < -7f && lastZ >= -7f) {
+                                    Timber.d("Phone flipped face down (z=$z, lastZ=$lastZ) - stopping athan")
+                                    flipDetectionEnabled = false  // Prevent multiple triggers
+                                    stopFallbackAthanAndDismissNotification()
+                                }
+                            }
                         }
                         lastZ = z
                     }
                     Sensor.TYPE_PROXIMITY -> {
-                        val distance = event.values[0]
-                        val maxRange = event.sensor.maximumRange
-                        // Near = face down on surface or in pocket
-                        val isNear = distance < maxRange * 0.5f
-                        if (isNear && kotlin.math.abs(lastZ) < 3f) {
-                            // Phone is flat and proximity sensor triggered = lying face down
-                            Timber.d("Proximity triggered while flat (dist=$distance, lastZ=$lastZ) - stopping athan")
-                            stopFallbackAthanAndDismissNotification()
+                        if (!flipDetectionEnabled) return
+
+                        val player = mediaPlayer
+                        val isPlaying = try {
+                            player?.isPlaying == true
+                        } catch (e: Exception) {
+                            false
+                        }
+
+                        if (isPlaying) {
+                            val distance = event.values[0]
+                            val maxRange = event.sensor.maximumRange
+                            // Near = face down on surface or in pocket
+                            val isNear = distance < maxRange * 0.5f
+                            if (isNear && kotlin.math.abs(lastZ) < 3f) {
+                                // Phone is flat and proximity sensor triggered = lying face down
+                                Timber.d("Proximity triggered while flat (dist=$distance, lastZ=$lastZ) - stopping athan")
+                                flipDetectionEnabled = false  // Prevent multiple triggers
+                                stopFallbackAthanAndDismissNotification()
+                            }
                         }
                     }
                 }
@@ -156,8 +218,15 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
             }
 
             try {
-                sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+                // IMPORTANT: Use applicationContext to ensure sensors persist after BroadcastReceiver finishes
+                val appContext = context.applicationContext
+                sensorManager = appContext.getSystemService(Context.SENSOR_SERVICE) as SensorManager
                 mainHandler = Handler(Looper.getMainLooper())
+
+                // Reset state for new registration
+                hasInitialReading = false
+                flipDetectionEnabled = false
+                lastZ = 0f
 
                 val accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
                 val proximitySensor = sensorManager?.getDefaultSensor(Sensor.TYPE_PROXIMITY)
@@ -168,7 +237,7 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
                     val registered = sensorManager?.registerListener(
                         sensorListener,
                         accelerometer,
-                        SensorManager.SENSOR_DELAY_UI,  // Faster than NORMAL for quicker flip detection
+                        SensorManager.SENSOR_DELAY_FASTEST,  // Fastest for immediate flip detection
                         mainHandler
                     )
                     Timber.d("Accelerometer registered: $registered")
@@ -180,14 +249,34 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
                     val registered = sensorManager?.registerListener(
                         sensorListener,
                         proximitySensor,
-                        SensorManager.SENSOR_DELAY_UI,
+                        SensorManager.SENSOR_DELAY_FASTEST,
                         mainHandler
                     )
                     Timber.d("Proximity sensor registered: $registered")
                 }
 
                 sensorsRegistered = true
-                Timber.d("Flip-to-silence sensors registered for athan")
+
+                // Register volume change and screen off receivers for button dismissal
+                if (!receiversRegistered) {
+                    try {
+                        val volumeFilter = IntentFilter("android.media.VOLUME_CHANGED_ACTION")
+                        val screenFilter = IntentFilter(Intent.ACTION_SCREEN_OFF)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            appContext.registerReceiver(volumeChangeReceiver, volumeFilter, Context.RECEIVER_EXPORTED)
+                            appContext.registerReceiver(screenOffReceiver, screenFilter, Context.RECEIVER_NOT_EXPORTED)
+                        } else {
+                            appContext.registerReceiver(volumeChangeReceiver, volumeFilter)
+                            appContext.registerReceiver(screenOffReceiver, screenFilter)
+                        }
+                        receiversRegistered = true
+                        Timber.d("Volume/screen receivers registered")
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error registering volume/screen receivers")
+                    }
+                }
+
+                Timber.d("Flip-to-silence sensors registered for athan (using applicationContext)")
             } catch (e: Exception) {
                 Timber.e(e, "Error registering flip-to-silence sensors")
             }
@@ -199,6 +288,23 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
             try {
                 sensorManager?.unregisterListener(sensorListener)
                 sensorsRegistered = false
+                hasInitialReading = false
+                flipDetectionEnabled = false
+
+                // Unregister volume/screen receivers
+                if (receiversRegistered) {
+                    try {
+                        currentContext?.let { ctx ->
+                            ctx.unregisterReceiver(volumeChangeReceiver)
+                            ctx.unregisterReceiver(screenOffReceiver)
+                        }
+                    } catch (e: IllegalArgumentException) {
+                        // Receivers not registered
+                    }
+                    receiversRegistered = false
+                    Timber.d("Volume/screen receivers unregistered")
+                }
+
                 sensorManager = null
                 mainHandler = null
                 Timber.d("Flip-to-silence sensors unregistered")
@@ -413,12 +519,12 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setAutoCancel(false)
-            .setOngoing(true)
+            .setAutoCancel(true)
+            .setOngoing(false)  // Allow swipe to dismiss
             .setFullScreenIntent(fullScreenPendingIntent, true)
-            .setContentIntent(fullScreenPendingIntent)
+            .setContentIntent(stopPendingIntent)  // Tap to stop athan
             .addAction(android.R.drawable.ic_media_pause, stopText, stopPendingIntent)
-            .setDeleteIntent(stopPendingIntent)
+            .setDeleteIntent(stopPendingIntent)  // Swipe to stop athan
             .setSilent(true)  // No notification sound - we play athan audio directly
 
         // Show notification

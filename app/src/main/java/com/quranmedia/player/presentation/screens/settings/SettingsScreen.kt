@@ -86,7 +86,6 @@ fun SettingsScreen(
     val context = LocalContext.current
 
     // Font download progress
-    val svgProgress by viewModel.svgDownloadProgress.collectAsState()
     val v4Progress by viewModel.v4DownloadProgress.collectAsState()
 
     var showIntervalDialog by remember { mutableStateOf(false) }
@@ -292,145 +291,54 @@ fun SettingsScreen(
                     title = if (language == AppLanguage.ARABIC) "إعدادات العرض" else "Display Settings",
                     language = language
                 ) {
-                    // Mushaf Font toggle (renamed from QCF)
-                    SettingsSwitchItem(
-                        title = if (language == AppLanguage.ARABIC) "خط المصحف" else "Mushaf Font",
-                        subtitle = if (language == AppLanguage.ARABIC)
-                            "عرض القرآن بخط المصحف الشريف"
-                        else
-                            "Display Quran in traditional Mushaf font",
-                        icon = Icons.Default.MenuBook,
-                        checked = settings.useQCFFont,
-                        onCheckedChange = { viewModel.setUseQCFFont(it) },
-                        language = language
+                    // Tajweed font download
+                    Text(
+                        text = if (language == AppLanguage.ARABIC) "خطوط التجويد" else "Tajweed Font",
+                        fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = islamicGreen,
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
 
-                    // Font download section (only show if Mushaf font is enabled)
-                    if (settings.useQCFFont) {
-                        val hasAnyFonts = viewModel.hasAnyFontsDownloaded()
+                    FontDownloadItem(
+                        title = if (language == AppLanguage.ARABIC) "خط المصحف بالتجويد" else "Mushaf Tajweed Font",
+                        subtitle = if (language == AppLanguage.ARABIC) "~159 ميجابايت" else "~159 MB",
+                        progress = v4Progress,
+                        language = language,
+                        formatSize = { viewModel.formatSize(it) },
+                        downloadedSize = viewModel.getV4FontsSize(),
+                        onDownload = { viewModel.downloadV4Fonts() },
+                        onDelete = { viewModel.deleteV4Fonts() }
+                    )
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = if (language == AppLanguage.ARABIC)
+                            "حمّل خطوط التجويد لعرض ألوان التجويد. اختر مظهر التجويد من مظهر القراءة."
+                        else
+                            "Download Tajweed font to display Tajweed colors. Select Tajweed theme from Reading Theme.",
+                        fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
+                        fontSize = 11.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
 
-                        // Warning if no fonts downloaded
-                        if (!hasAnyFonts) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFFFF3E0) // Light orange
-                                )
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.Warning,
-                                        contentDescription = null,
-                                        tint = Color(0xFFE65100),
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Text(
-                                        text = if (language == AppLanguage.ARABIC)
-                                            "يجب تحميل الخطوط أولاً لاستخدام خط المصحف"
-                                        else
-                                            "You must download fonts first to use Mushaf font",
-                                        fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
-                                        fontSize = 13.sp,
-                                        color = Color(0xFFE65100),
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        color = Color.Gray.copy(alpha = 0.2f)
+                    )
 
-                        // Tajweed hint (only show if fonts are downloaded)
-                        if (hasAnyFonts) {
-                            Text(
-                                text = if (language == AppLanguage.ARABIC)
-                                    "اختر مظهر التجويد من قسم مظهر القراءة لعرض ألوان التجويد"
-                                else
-                                    "Select Tajweed theme above to display Tajweed colors",
-                                fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
-                                fontSize = 11.sp,
-                                color = Color.Gray,
-                                modifier = Modifier.padding(start = 46.dp)
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
-
-                        // Font downloads subsection
-                        Text(
-                            text = if (language == AppLanguage.ARABIC) "تحميل الخطوط" else "Font Downloads",
-                            fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = islamicGreen,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-
-                        // Mushaf font download
-                        FontDownloadItem(
-                            title = if (language == AppLanguage.ARABIC) "خط المصحف" else "Mushaf Font",
-                            subtitle = if (language == AppLanguage.ARABIC) "~100 ميجابايت" else "~100 MB",
-                            progress = svgProgress,
-                            language = language,
-                            formatSize = { viewModel.formatSize(it) },
-                            downloadedSize = viewModel.getSVGFontsSize(),
-                            onDownload = { viewModel.downloadSVGFonts() },
-                            onDelete = { viewModel.deleteSVGFonts() }
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Mushaf Tajweed font download
-                        FontDownloadItem(
-                            title = if (language == AppLanguage.ARABIC) "خط المصحف بالتجويد" else "Mushaf Tajweed Font",
-                            subtitle = if (language == AppLanguage.ARABIC) "~159 ميجابايت" else "~159 MB",
-                            progress = v4Progress,
-                            language = language,
-                            formatSize = { viewModel.formatSize(it) },
-                            downloadedSize = viewModel.getV4FontsSize(),
-                            onDownload = { viewModel.downloadV4Fonts() },
-                            onDelete = { viewModel.deleteV4Fonts() }
-                        )
-
-                        // Info text
-                        Text(
-                            text = if (language == AppLanguage.ARABIC)
-                                "قم بتحميل الخطوط لاستخدام خط المصحف. يمكنك حذفها لتوفير المساحة."
-                            else
-                                "Download fonts to use Mushaf font. You can delete them to save space.",
-                            fontFamily = if (language == AppLanguage.ARABIC) scheherazadeFont else null,
-                            fontSize = 11.sp,
-                            color = Color.Gray,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-
-                    // Bold font toggle (only for non-Mushaf text mode - doesn't work with Mushaf fonts)
-                    if (!settings.useQCFFont) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            color = Color.Gray.copy(alpha = 0.2f)
-                        )
-
-                        SettingsSwitchItem(
-                            title = if (language == AppLanguage.ARABIC) "خط عريض" else "Bold Font",
-                            subtitle = if (language == AppLanguage.ARABIC)
-                                "استخدام خط عريض للقرآن في وضع القراءة"
-                            else
-                                "Use bold font for Quran text in reading mode",
-                            icon = Icons.Default.FormatBold,
-                            checked = settings.useBoldFont,
-                            onCheckedChange = { viewModel.setUseBoldFont(it) },
-                            language = language
-                        )
-                    }
+                    SettingsSwitchItem(
+                        title = if (language == AppLanguage.ARABIC) "خط عريض" else "Bold Font",
+                        subtitle = if (language == AppLanguage.ARABIC)
+                            "استخدام خط عريض للقرآن في وضع القراءة"
+                        else
+                            "Use bold font for Quran text in reading mode",
+                        icon = Icons.Default.FormatBold,
+                        checked = settings.useBoldFont,
+                        onCheckedChange = { viewModel.setUseBoldFont(it) },
+                        language = language
+                    )
 
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 8.dp),

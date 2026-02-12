@@ -933,6 +933,10 @@ class QuranReaderViewModel @Inject constructor(
      */
     fun showTafseer(ayah: Ayah) {
         viewModelScope.launch {
+            val appLanguage = settings.value.appLanguage.name.lowercase()
+            val allSorted = AvailableTafseers.getSortedByLanguage(appLanguage)
+            val downloadedTafseers = tafseerRepository.getDownloadedTafseerIds()
+
             // Show modal immediately with loading state
             _tafseerState.value = TafseerModalState(
                 isVisible = true,
@@ -940,6 +944,8 @@ class QuranReaderViewModel @Inject constructor(
                 ayah = ayah.ayahNumber,
                 surahName = surahNamesArabic[ayah.surahNumber] ?: "",
                 ayahText = ayah.textArabic,
+                allTafseers = allSorted,
+                downloadedIds = downloadedTafseers,
                 isLoading = true
             )
 
@@ -947,30 +953,67 @@ class QuranReaderViewModel @Inject constructor(
                 // Get available tafseers for this ayah
                 val tafseers = tafseerRepository.getAllTafseersForAyah(ayah.surahNumber, ayah.ayahNumber)
 
-                if (tafseers.isEmpty()) {
-                    _tafseerState.value = _tafseerState.value.copy(
-                        isLoading = false,
-                        availableTafseers = emptyList()
-                    )
-                } else {
-                    // Sort tafseers based on app language
-                    val appLanguage = settings.value.appLanguage.name.lowercase()
-                    val sortedIds = AvailableTafseers.getSortedByLanguage(appLanguage).map { it.id }
-                    val sortedTafseers = tafseers.sortedBy { (tafseerInfo, _) ->
-                        sortedIds.indexOf(tafseerInfo.id).takeIf { it >= 0 } ?: Int.MAX_VALUE
-                    }
-
-                    _tafseerState.value = _tafseerState.value.copy(
-                        isLoading = false,
-                        availableTafseers = sortedTafseers,
-                        selectedTafseerId = sortedTafseers.firstOrNull()?.first?.id
-                    )
+                val sortedIds = allSorted.map { it.id }
+                val sortedTafseers = tafseers.sortedBy { (tafseerInfo, _) ->
+                    sortedIds.indexOf(tafseerInfo.id).takeIf { it >= 0 } ?: Int.MAX_VALUE
                 }
+
+                _tafseerState.value = _tafseerState.value.copy(
+                    isLoading = false,
+                    availableTafseers = sortedTafseers,
+                    selectedTafseerId = sortedTafseers.firstOrNull()?.first?.id
+                )
             } catch (e: Exception) {
                 Timber.e(e, "Error loading tafseer")
                 _tafseerState.value = _tafseerState.value.copy(
                     isLoading = false,
                     error = "Error loading tafseer"
+                )
+            }
+        }
+    }
+
+    /**
+     * Download a tafseer from within the tafseer modal.
+     * After download completes, reload content for the current ayah.
+     */
+    fun downloadTafseerFromModal(tafseerId: String) {
+        viewModelScope.launch {
+            _tafseerState.value = _tafseerState.value.copy(
+                downloadingTafseerId = tafseerId,
+                downloadProgress = 0f
+            )
+
+            val success = tafseerRepository.downloadTafseer(tafseerId) { progress ->
+                _tafseerState.value = _tafseerState.value.copy(
+                    downloadProgress = progress
+                )
+            }
+
+            if (success) {
+                // Refresh downloaded IDs
+                val downloadedIds = tafseerRepository.getDownloadedTafseerIds()
+
+                // Reload tafseer content for current ayah
+                val currentState = _tafseerState.value
+                val tafseers = tafseerRepository.getAllTafseersForAyah(currentState.surah, currentState.ayah)
+                val appLanguage = settings.value.appLanguage.name.lowercase()
+                val sortedIds = AvailableTafseers.getSortedByLanguage(appLanguage).map { it.id }
+                val sortedTafseers = tafseers.sortedBy { (info, _) ->
+                    sortedIds.indexOf(info.id).takeIf { it >= 0 } ?: Int.MAX_VALUE
+                }
+
+                _tafseerState.value = currentState.copy(
+                    downloadingTafseerId = null,
+                    downloadProgress = 0f,
+                    downloadedIds = downloadedIds,
+                    availableTafseers = sortedTafseers,
+                    selectedTafseerId = tafseerId  // Select the newly downloaded tafseer
+                )
+            } else {
+                _tafseerState.value = _tafseerState.value.copy(
+                    downloadingTafseerId = null,
+                    downloadProgress = 0f
                 )
             }
         }
