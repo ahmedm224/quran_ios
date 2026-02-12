@@ -66,13 +66,13 @@ data class OnboardingUiState(
     val currentStage: OnboardingStage = OnboardingStage.DOWNLOADS,
 
     // Download states
-    val v2State: DownloadItemState = DownloadItemState(
-        id = "v2",
+    val svgState: DownloadItemState = DownloadItemState(
+        id = "svg",
         nameArabic = "خطوط المصحف",
         nameEnglish = "Mushaf Fonts",
         description = "Required for authentic Quran page display",
         descriptionArabic = "مطلوب لعرض صفحات المصحف بشكل أصيل",
-        sizeInfo = "~198 MB",
+        sizeInfo = "~100 MB",
         isRequired = true
     ),
     val v4State: DownloadItemState = DownloadItemState(
@@ -131,7 +131,7 @@ class OnboardingViewModel @Inject constructor(
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
 
     // Expose font download progress
-    val v2DownloadProgress = fontDownloadManager.v2DownloadProgress
+    val svgDownloadProgress = fontDownloadManager.svgDownloadProgress
     val v4DownloadProgress = fontDownloadManager.v4DownloadProgress
 
     // Tafseer download progress
@@ -164,9 +164,9 @@ class OnboardingViewModel @Inject constructor(
 
     private fun observeFontDownloads() {
         viewModelScope.launch {
-            fontDownloadManager.v2DownloadProgress.collect { progress ->
+            fontDownloadManager.svgDownloadProgress.collect { progress ->
                 _uiState.value = _uiState.value.copy(
-                    v2State = _uiState.value.v2State.copy(
+                    svgState = _uiState.value.svgState.copy(
                         isDownloaded = progress.state == FontDownloadState.DOWNLOADED,
                         isDownloading = progress.state == FontDownloadState.DOWNLOADING,
                         progress = progress.progress,
@@ -191,10 +191,10 @@ class OnboardingViewModel @Inject constructor(
     }
 
     private suspend fun checkExistingDownloads() {
-        // Check V2
-        val v2Downloaded = fontDownloadManager.isV2Downloaded()
+        // Check SVG
+        val svgDownloaded = fontDownloadManager.isSVGDownloaded()
         _uiState.value = _uiState.value.copy(
-            v2State = _uiState.value.v2State.copy(isDownloaded = v2Downloaded)
+            svgState = _uiState.value.svgState.copy(isDownloaded = svgDownloaded)
         )
 
         // Check V4
@@ -231,17 +231,17 @@ class OnboardingViewModel @Inject constructor(
 
     // ==================== Download Functions ====================
 
-    fun downloadV2() {
+    fun downloadSVG() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
-                v2State = _uiState.value.v2State.copy(isDownloading = true, error = null)
+                svgState = _uiState.value.svgState.copy(isDownloading = true, error = null)
             )
-            val success = fontDownloadManager.downloadV2Fonts()
+            val success = fontDownloadManager.downloadSVGFonts()
             if (success) {
-                // Enable QCF mode with plain (V2) fonts
+                // Enable Mushaf mode with SVG rendering
                 settingsRepository.setUseQCFFont(true)
                 settingsRepository.setQCFTajweedMode(false)
-                Timber.d("V2 fonts downloaded - QCF mode enabled")
+                Timber.d("SVG fonts downloaded - Mushaf mode enabled")
             }
         }
     }
@@ -253,8 +253,8 @@ class OnboardingViewModel @Inject constructor(
             )
             val success = fontDownloadManager.downloadV4Fonts()
             if (success) {
-                // Enable QCF mode with Tajweed (V4) fonts if V2 is also downloaded
-                if (fontDownloadManager.isV2Downloaded()) {
+                // Enable Tajweed mode if SVG is also downloaded
+                if (fontDownloadManager.isSVGDownloaded()) {
                     settingsRepository.setQCFTajweedMode(true)
                 }
                 Timber.d("V4 fonts downloaded")
@@ -319,8 +319,8 @@ class OnboardingViewModel @Inject constructor(
     fun goToNextStage() {
         when (_uiState.value.currentStage) {
             OnboardingStage.DOWNLOADS -> {
-                // Check if V2 is skipped without download
-                if (!_uiState.value.v2State.isDownloaded && !_uiState.value.showSkipWarning) {
+                // Check if SVG Mushaf font is skipped without download
+                if (!_uiState.value.svgState.isDownloaded && !_uiState.value.showSkipWarning) {
                     _uiState.value = _uiState.value.copy(showSkipWarning = true)
                     return
                 }
@@ -576,8 +576,8 @@ class OnboardingViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isCompleting = true)
 
-            // Enable Mushaf font if V2 is downloaded
-            if (_uiState.value.v2State.isDownloaded) {
+            // Enable Mushaf font if SVG is downloaded
+            if (_uiState.value.svgState.isDownloaded) {
                 settingsRepository.setUseQCFFont(true)
                 // Enable Tajweed mode if V4 is also downloaded
                 if (_uiState.value.v4State.isDownloaded) {

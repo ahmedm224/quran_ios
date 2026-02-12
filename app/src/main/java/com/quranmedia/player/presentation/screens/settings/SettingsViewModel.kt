@@ -42,15 +42,15 @@ class SettingsViewModel @Inject constructor(
         )
 
     // Font download progress states
-    val v2DownloadProgress: StateFlow<FontDownloadProgress> = fontDownloadManager.v2DownloadProgress
+    val svgDownloadProgress: StateFlow<FontDownloadProgress> = fontDownloadManager.svgDownloadProgress
     val v4DownloadProgress: StateFlow<FontDownloadProgress> = fontDownloadManager.v4DownloadProgress
 
     // Check if fonts are downloaded
-    fun isV2Downloaded(): Boolean = fontDownloadManager.isV2Downloaded()
+    fun isSVGDownloaded(): Boolean = fontDownloadManager.isSVGDownloaded()
     fun isV4Downloaded(): Boolean = fontDownloadManager.isV4Downloaded()
 
     // Get downloaded font sizes
-    fun getV2FontsSize(): Long = fontDownloadManager.getV2FontsSize()
+    fun getSVGFontsSize(): Long = fontDownloadManager.getSVGFontsSize()
     fun getV4FontsSize(): Long = fontDownloadManager.getV4FontsSize()
     fun formatSize(bytes: Long): String = fontDownloadManager.formatSize(bytes)
 
@@ -202,7 +202,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             // If enabling QCF and no fonts are downloaded, don't enable yet
             // The UI will show the download section
-            if (enabled && !isV2Downloaded() && !isV4Downloaded()) {
+            if (enabled && !isSVGDownloaded() && !isV4Downloaded()) {
                 // Still enable so user sees the download section, but they need to download
                 settingsRepository.setUseQCFFont(true)
             } else {
@@ -212,9 +212,9 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * Check if at least one font pack is available for QCF rendering
+     * Check if at least one font pack is available for Mushaf rendering
      */
-    fun hasAnyFontsDownloaded(): Boolean = isV2Downloaded() || isV4Downloaded()
+    fun hasAnyFontsDownloaded(): Boolean = isSVGDownloaded() || isV4Downloaded()
 
     fun setQCFTajweedMode(enabled: Boolean) {
         viewModelScope.launch {
@@ -223,9 +223,9 @@ class SettingsViewModel @Inject constructor(
     }
 
     // Font download methods
-    fun downloadV2Fonts(baseUrl: String = "https://alfurqan.online/api/v1/fonts") {
+    fun downloadSVGFonts(baseUrl: String = "https://alfurqan.online/api/v1/fonts") {
         viewModelScope.launch {
-            fontDownloadManager.downloadV2Fonts(baseUrl)
+            fontDownloadManager.downloadSVGFonts(baseUrl)
         }
     }
 
@@ -235,9 +235,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun deleteV2Fonts() {
+    fun deleteSVGFonts() {
         viewModelScope.launch {
-            fontDownloadManager.deleteV2Fonts()
+            fontDownloadManager.deleteSVGFonts()
         }
     }
 

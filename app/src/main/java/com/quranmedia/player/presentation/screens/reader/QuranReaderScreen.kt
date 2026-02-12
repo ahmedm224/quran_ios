@@ -50,6 +50,7 @@ import com.quranmedia.player.domain.model.Ayah
 import com.quranmedia.player.domain.model.Reciter
 import com.quranmedia.player.presentation.screens.reader.components.QuranPageComposable
 import com.quranmedia.player.presentation.screens.reader.components.QCFPageComposable
+import com.quranmedia.player.presentation.screens.reader.components.SVGPageComposable
 import com.quranmedia.player.presentation.screens.reader.components.CustomRecitationDialog
 import com.quranmedia.player.data.model.QCFPageData
 import com.quranmedia.player.data.model.QCFFontMode
@@ -176,10 +177,10 @@ fun QuranReaderScreen(
     // Track pending page navigation after zoom mode change (to ensure scroll happens after recomposition)
     var pendingPageAfterZoomChange by remember { mutableStateOf<Int?>(null) }
 
-    // Check QCF mode availability at screen level (for controlling zoom button)
-    val v2FontsAvailable = viewModel.isV2FontsDownloaded()
+    // Check QCF/SVG mode availability at screen level (for controlling zoom button)
+    val svgAvailable = viewModel.qcfAssetLoader.isSVGAvailable()
     val v4FontsAvailable = viewModel.isV4FontsDownloaded()
-    val isQCFModeActive = settings.useQCFFont && (v2FontsAvailable || v4FontsAvailable)
+    val isQCFModeActive = settings.useQCFFont && (svgAvailable || v4FontsAvailable)
 
     // In SPLIT mode, each real page becomes 2 virtual pages (first half, second half)
     val virtualPageCount = when (zoomMode) {
@@ -389,28 +390,55 @@ fun QuranReaderScreen(
                         }
                     }
 
-                    // Check if QCF mode is enabled AND fonts are available
-                    // If fonts aren't downloaded, fall back to regular rendering
-                    val v2Available = viewModel.isV2FontsDownloaded()
+                    // Determine rendering mode:
+                    // 1. useQCFFont + tajweed + V4 available → QCF Tajweed (V4)
+                    // 2. useQCFFont + SVG available → SVG Mushaf
+                    // 3. Otherwise → Regular text (KFGQPC)
                     val v4Available = viewModel.isV4FontsDownloaded()
-                    val qcfFontsAvailable = v2Available || v4Available
+                    val svgIsAvailable = viewModel.qcfAssetLoader.isSVGAvailable()
+                    val isTajweedMode = settings.qcfTajweedMode && v4Available
+                    val useSVGMode = settings.useQCFFont && !isTajweedMode && svgIsAvailable
+                    val useQCFMode = settings.useQCFFont && isTajweedMode
 
-                    // Determine actual font mode based on availability
-                    // If user wants Tajweed but V4 not available, fall back to V2 if available
-                    val effectiveFontMode = when {
-                        settings.qcfTajweedMode && v4Available -> QCFFontMode.TAJWEED
-                        v2Available -> QCFFontMode.PLAIN
-                        v4Available -> QCFFontMode.TAJWEED  // Use V4 as fallback if only V4 available
-                        else -> QCFFontMode.PLAIN  // Default, won't be used if no fonts
-                    }
+                    if (useSVGMode) {
+                        // SVG Mode - render full-page SVG vector graphics
+                        var svgContent by remember { mutableStateOf<String?>(null) }
+                        var svgPageData by remember { mutableStateOf<QCFPageData?>(null) }
 
-                    val useQCFMode = settings.useQCFFont && qcfFontsAvailable
+                        LaunchedEffect(realPageNumber) {
+                            svgContent = viewModel.qcfAssetLoader.loadSVG(realPageNumber)
+                            svgPageData = viewModel.qcfAssetLoader.loadPageData(realPageNumber)
+                        }
 
-                    if (useQCFMode) {
-                        // QCF Mode - use per-page fonts
+                        SVGPageComposable(
+                            pageNumber = realPageNumber,
+                            svgContent = svgContent,
+                            pageData = svgPageData,
+                            ayahs = pageAyahs,
+                            highlightedAyah = state.highlightedAyah,
+                            readingTheme = readingTheme,
+                            customBackgroundColor = if (readingTheme == com.quranmedia.player.data.repository.ReadingTheme.CUSTOM)
+                                Color((settings.customBackgroundColor and 0xFFFFFFFF).toInt()) else null,
+                            customTextColor = if (readingTheme == com.quranmedia.player.data.repository.ReadingTheme.CUSTOM)
+                                Color((settings.customTextColor and 0xFFFFFFFF).toInt()) else null,
+                            customHeaderColor = if (readingTheme == com.quranmedia.player.data.repository.ReadingTheme.CUSTOM)
+                                Color((settings.customHeaderColor and 0xFFFFFFFF).toInt()) else null,
+                            isLandscape = isLandscape,
+                            modifier = Modifier.fillMaxSize(),
+                            onTap = {
+                                showControls = !showControls
+                            },
+                            onAyahLongPress = { ayah: Ayah, position: Offset ->
+                                selectedAyah = ayah
+                                menuPosition = position
+                                showAyahMenu = true
+                            }
+                        )
+                    } else if (useQCFMode) {
+                        // QCF Tajweed Mode (V4) - use per-page fonts
                         var qcfPageData by remember { mutableStateOf<QCFPageData?>(null) }
                         var qcfFont by remember { mutableStateOf<FontFamily?>(null) }
-                        val qcfFontMode = effectiveFontMode
+                        val qcfFontMode = QCFFontMode.TAJWEED
 
                         LaunchedEffect(realPageNumber, qcfFontMode) {
                             // Load QCF page data and font

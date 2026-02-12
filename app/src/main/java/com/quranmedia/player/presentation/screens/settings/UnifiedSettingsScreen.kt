@@ -100,7 +100,7 @@ fun UnifiedSettingsScreen(
     var selectedTab by remember { mutableStateOf(if (initialTab == "prayer") SettingsTab.PRAYER else SettingsTab.READING) }
 
     // Font download progress
-    val v2Progress by settingsViewModel.v2DownloadProgress.collectAsState()
+    val svgProgress by settingsViewModel.svgDownloadProgress.collectAsState()
     val v4Progress by settingsViewModel.v4DownloadProgress.collectAsState()
 
     var showIntervalDialog by remember { mutableStateOf(false) }
@@ -275,7 +275,7 @@ fun UnifiedSettingsScreen(
                             .padding(paddingValues),
                         settings = settings,
                         language = language,
-                        v2Progress = v2Progress,
+                        svgProgress = svgProgress,
                         v4Progress = v4Progress,
                         viewModel = settingsViewModel,
                         context = context,
@@ -420,7 +420,7 @@ private fun ReadingSettingsContent(
     modifier: Modifier = Modifier,
     settings: com.quranmedia.player.data.repository.UserSettings,
     language: AppLanguage,
-    v2Progress: FontDownloadProgress,
+    svgProgress: FontDownloadProgress,
     v4Progress: FontDownloadProgress,
     viewModel: SettingsViewModel,
     context: android.content.Context,
@@ -577,7 +577,9 @@ private fun ReadingSettingsContent(
                     "Display Quran in traditional Mushaf font",
                 icon = Icons.Default.MenuBook,
                 checked = settings.useQCFFont,
-                onCheckedChange = { viewModel.setUseQCFFont(it) },
+                onCheckedChange = { enabled ->
+                    viewModel.setUseQCFFont(enabled)
+                },
                 language = language
             )
 
@@ -647,13 +649,13 @@ private fun ReadingSettingsContent(
 
                 FontDownloadItemWood(
                     title = if (language == AppLanguage.ARABIC) "خط المصحف" else "Mushaf Font",
-                    subtitle = if (language == AppLanguage.ARABIC) "~198 ميجابايت" else "~198 MB",
-                    progress = v2Progress,
+                    subtitle = if (language == AppLanguage.ARABIC) "~100 ميجابايت" else "~100 MB",
+                    progress = svgProgress,
                     language = language,
                     formatSize = { viewModel.formatSize(it) },
-                    downloadedSize = viewModel.getV2FontsSize(),
-                    onDownload = { viewModel.downloadV2Fonts() },
-                    onDelete = { viewModel.deleteV2Fonts() }
+                    downloadedSize = viewModel.getSVGFontsSize(),
+                    onDownload = { viewModel.downloadSVGFonts() },
+                    onDelete = { viewModel.deleteSVGFonts() }
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))

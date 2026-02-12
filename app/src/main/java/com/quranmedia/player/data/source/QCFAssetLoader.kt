@@ -251,4 +251,47 @@ class QCFAssetLoader @Inject constructor(
      * Check if page number is valid.
      */
     fun isValidPage(pageNumber: Int): Boolean = pageNumber in 1..TOTAL_PAGES
+
+    /**
+     * Check if SVG Quran pages are available (downloaded or bundled).
+     */
+    fun isSVGAvailable(): Boolean {
+        // Check downloaded SVG pages first
+        if (fontDownloadManager.isSVGDownloaded()) return true
+
+        // Fall back to bundled assets
+        return try {
+            val list = context.assets.list("quran-svg")
+            (list?.size ?: 0) >= 600
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Load SVG content for a specific page.
+     * Priority: Downloaded files > Bundled assets
+     * Downloaded: context.filesDir/fonts/quran-svg/001.svg
+     * Bundled: assets/quran-svg/001.svg
+     */
+    suspend fun loadSVG(pageNumber: Int): String? {
+        if (pageNumber !in 1..TOTAL_PAGES) return null
+
+        return withContext(Dispatchers.IO) {
+            try {
+                // Try downloaded SVG first
+                val downloadedFile = fontDownloadManager.getSVGFile(pageNumber)
+                if (downloadedFile != null && downloadedFile.exists()) {
+                    return@withContext downloadedFile.readText()
+                }
+
+                // Fall back to bundled assets
+                val fileName = "quran-svg/${pageNumber.toString().padStart(3, '0')}.svg"
+                context.assets.open(fileName).bufferedReader().use { it.readText() }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to load SVG for page $pageNumber")
+                null
+            }
+        }
+    }
 }

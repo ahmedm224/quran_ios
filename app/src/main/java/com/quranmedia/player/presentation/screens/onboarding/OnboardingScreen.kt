@@ -179,7 +179,7 @@ fun OnboardingScreen(
                         OnboardingStage.DOWNLOADS -> DownloadsStage(
                             uiState = uiState,
                             isArabic = isArabic,
-                            onDownloadV2 = { viewModel.downloadV2() },
+                            onDownloadSVG = { viewModel.downloadSVG() },
                             onDownloadV4 = { viewModel.downloadV4() },
                             onDownloadTafseerArabic = { viewModel.downloadTafseerArabic() },
                             onDownloadTafseerEnglish = { viewModel.downloadTafseerEnglish() }
@@ -326,7 +326,7 @@ private fun StageIndicator(isActive: Boolean, isCompleted: Boolean) {
 private fun DownloadsStage(
     uiState: OnboardingUiState,
     isArabic: Boolean,
-    onDownloadV2: () -> Unit,
+    onDownloadSVG: () -> Unit,
     onDownloadV4: () -> Unit,
     onDownloadTafseerArabic: () -> Unit,
     onDownloadTafseerEnglish: () -> Unit
@@ -335,11 +335,11 @@ private fun DownloadsStage(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // V2 - Required
+        // SVG Mushaf Font - Required
         DownloadItem(
-            state = uiState.v2State,
+            state = uiState.svgState,
             isArabic = isArabic,
-            onDownload = onDownloadV2,
+            onDownload = onDownloadSVG,
             showRequiredBadge = true
         )
 

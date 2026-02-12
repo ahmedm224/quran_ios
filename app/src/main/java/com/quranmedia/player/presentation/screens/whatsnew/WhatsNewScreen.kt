@@ -50,11 +50,11 @@ fun WhatsNewScreen(
     val language = uiState.language
 
     // Font download progress
-    val v2Progress by viewModel.v2DownloadProgress.collectAsState()
+    val svgProgress by viewModel.svgDownloadProgress.collectAsState()
     val v4Progress by viewModel.v4DownloadProgress.collectAsState()
 
     // Make downloaded state reactive - updates when progress state changes
-    val isV2Downloaded = v2Progress.state == FontDownloadState.DOWNLOADED || viewModel.isV2Downloaded()
+    val isSVGDownloaded = svgProgress.state == FontDownloadState.DOWNLOADED || viewModel.isSVGDownloaded()
     val isV4Downloaded = v4Progress.state == FontDownloadState.DOWNLOADED || viewModel.isV4Downloaded()
 
     // Permission launchers
@@ -110,11 +110,11 @@ fun WhatsNewScreen(
                 item {
                     MushafFontDownloadSection(
                         language = language,
-                        isV2Downloaded = isV2Downloaded,
+                        isSVGDownloaded = isSVGDownloaded,
                         isV4Downloaded = isV4Downloaded,
-                        v2Progress = v2Progress,
+                        svgProgress = svgProgress,
                         v4Progress = v4Progress,
-                        onDownloadV2 = { viewModel.downloadV2Fonts() },
+                        onDownloadSVG = { viewModel.downloadSVGFonts() },
                         onDownloadV4 = { viewModel.downloadV4Fonts() }
                     )
                 }
@@ -846,11 +846,11 @@ private fun LanguageToggle(
 @Composable
 private fun MushafFontDownloadSection(
     language: AppLanguage,
-    isV2Downloaded: Boolean,
+    isSVGDownloaded: Boolean,
     isV4Downloaded: Boolean,
-    v2Progress: com.quranmedia.player.data.source.FontDownloadProgress,
+    svgProgress: com.quranmedia.player.data.source.FontDownloadProgress,
     v4Progress: com.quranmedia.player.data.source.FontDownloadProgress,
-    onDownloadV2: () -> Unit,
+    onDownloadSVG: () -> Unit,
     onDownloadV4: () -> Unit
 ) {
     Card(
@@ -907,14 +907,14 @@ private fun MushafFontDownloadSection(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Plain Fonts (V2)
+            // Mushaf Font (SVG)
             FontDownloadItem(
                 language = language,
-                title = if (language == AppLanguage.ARABIC) "الخطوط الأساسية" else "Plain Fonts",
-                size = "~198 MB",
-                isDownloaded = isV2Downloaded,
-                progress = v2Progress,
-                onDownload = onDownloadV2
+                title = if (language == AppLanguage.ARABIC) "خطوط المصحف" else "Mushaf Fonts",
+                size = "~100 MB",
+                isDownloaded = isSVGDownloaded,
+                progress = svgProgress,
+                onDownload = onDownloadSVG
             )
 
             Spacer(modifier = Modifier.height(12.dp))

@@ -86,7 +86,7 @@ fun SettingsScreen(
     val context = LocalContext.current
 
     // Font download progress
-    val v2Progress by viewModel.v2DownloadProgress.collectAsState()
+    val svgProgress by viewModel.svgDownloadProgress.collectAsState()
     val v4Progress by viewModel.v4DownloadProgress.collectAsState()
 
     var showIntervalDialog by remember { mutableStateOf(false) }
@@ -373,16 +373,16 @@ fun SettingsScreen(
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
 
-                        // Mushaf font download (plain)
+                        // Mushaf font download
                         FontDownloadItem(
                             title = if (language == AppLanguage.ARABIC) "خط المصحف" else "Mushaf Font",
-                            subtitle = if (language == AppLanguage.ARABIC) "~198 ميجابايت" else "~198 MB",
-                            progress = v2Progress,
+                            subtitle = if (language == AppLanguage.ARABIC) "~100 ميجابايت" else "~100 MB",
+                            progress = svgProgress,
                             language = language,
                             formatSize = { viewModel.formatSize(it) },
-                            downloadedSize = viewModel.getV2FontsSize(),
-                            onDownload = { viewModel.downloadV2Fonts() },
-                            onDelete = { viewModel.deleteV2Fonts() }
+                            downloadedSize = viewModel.getSVGFontsSize(),
+                            onDownload = { viewModel.downloadSVGFonts() },
+                            onDelete = { viewModel.deleteSVGFonts() }
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))

@@ -57,10 +57,12 @@ class QCFFontDownloadManager @Inject constructor(
         // Font pack ZIP filenames
         private const val V2_FONT_PACK = "qcf-v2.zip"
         private const val V4_FONT_PACK = "qcf-v4.zip"
+        private const val SVG_FONT_PACK = "quran-svg.zip"
 
         // Local folder names for extracted fonts
         const val V2_FONTS_FOLDER = "qcf-v2"
         const val V4_FONTS_FOLDER = "qcf-v4"
+        const val SVG_FONTS_FOLDER = "quran-svg"
 
         // Total number of font files expected (one per page)
         const val TOTAL_PAGES = 604
@@ -75,6 +77,9 @@ class QCFFontDownloadManager @Inject constructor(
     private val _v4DownloadProgress = MutableStateFlow(FontDownloadProgress())
     val v4DownloadProgress: StateFlow<FontDownloadProgress> = _v4DownloadProgress.asStateFlow()
 
+    private val _svgDownloadProgress = MutableStateFlow(FontDownloadProgress())
+    val svgDownloadProgress: StateFlow<FontDownloadProgress> = _svgDownloadProgress.asStateFlow()
+
     init {
         // Check existing downloads on init
         checkExistingDownloads()
@@ -86,6 +91,7 @@ class QCFFontDownloadManager @Inject constructor(
     private fun checkExistingDownloads() {
         val v2Folder = File(fontsDir, V2_FONTS_FOLDER)
         val v4Folder = File(fontsDir, V4_FONTS_FOLDER)
+        val svgFolder = File(fontsDir, SVG_FONTS_FOLDER)
 
         if (isValidFontFolder(v2Folder)) {
             _v2DownloadProgress.value = FontDownloadProgress(
@@ -96,6 +102,13 @@ class QCFFontDownloadManager @Inject constructor(
 
         if (isValidFontFolder(v4Folder)) {
             _v4DownloadProgress.value = FontDownloadProgress(
+                state = FontDownloadState.DOWNLOADED,
+                progress = 1f
+            )
+        }
+
+        if (isValidSvgFolder(svgFolder)) {
+            _svgDownloadProgress.value = FontDownloadProgress(
                 state = FontDownloadState.DOWNLOADED,
                 progress = 1f
             )
@@ -125,12 +138,40 @@ class QCFFontDownloadManager @Inject constructor(
     }
 
     /**
+     * Check if an SVG folder contains valid SVG files
+     */
+    private fun isValidSvgFolder(folder: File): Boolean {
+        if (!folder.exists() || !folder.isDirectory) return false
+
+        val svgFiles = folder.listFiles { file ->
+            file.isFile && file.name.endsWith(".svg", ignoreCase = true)
+        }
+        val fileCount = svgFiles?.size ?: 0
+
+        Timber.d("SVG folder ${folder.name} has $fileCount .svg files")
+
+        val p1 = File(folder, "001.svg")
+        val p604 = File(folder, "604.svg")
+
+        return (p1.exists() && p604.exists()) || fileCount >= 600
+    }
+
+    /**
      * Get the path to a specific font file if downloaded
      */
     fun getFontFile(pageNumber: Int, isTajweed: Boolean): File? {
         val folder = if (isTajweed) V4_FONTS_FOLDER else V2_FONTS_FOLDER
         val fontFile = File(fontsDir, "$folder/p$pageNumber.ttf")
         return if (fontFile.exists()) fontFile else null
+    }
+
+    /**
+     * Get the path to a specific SVG file if downloaded
+     */
+    fun getSVGFile(pageNumber: Int): File? {
+        val fileName = "${pageNumber.toString().padStart(3, '0')}.svg"
+        val svgFile = File(fontsDir, "$SVG_FONTS_FOLDER/$fileName")
+        return if (svgFile.exists()) svgFile else null
     }
 
     /**
@@ -142,6 +183,11 @@ class QCFFontDownloadManager @Inject constructor(
      * Check if V4 fonts are downloaded
      */
     fun isV4Downloaded(): Boolean = _v4DownloadProgress.value.state == FontDownloadState.DOWNLOADED
+
+    /**
+     * Check if SVG pages are downloaded
+     */
+    fun isSVGDownloaded(): Boolean = _svgDownloadProgress.value.state == FontDownloadState.DOWNLOADED
 
     /**
      * Download V2 (Plain) fonts
@@ -166,12 +212,25 @@ class QCFFontDownloadManager @Inject constructor(
     }
 
     /**
+     * Download SVG Quran pages
+     */
+    suspend fun downloadSVGFonts(baseUrl: String = DEFAULT_BASE_URL): Boolean {
+        return downloadFontPack(
+            url = "$baseUrl/$SVG_FONT_PACK",
+            targetFolder = SVG_FONTS_FOLDER,
+            progressFlow = _svgDownloadProgress,
+            fileExtensions = listOf(".svg")
+        )
+    }
+
+    /**
      * Download and extract a font pack
      */
     private suspend fun downloadFontPack(
         url: String,
         targetFolder: String,
-        progressFlow: MutableStateFlow<FontDownloadProgress>
+        progressFlow: MutableStateFlow<FontDownloadProgress>,
+        fileExtensions: List<String> = listOf(".ttf")
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             progressFlow.value = FontDownloadProgress(
@@ -204,8 +263,10 @@ class QCFFontDownloadManager @Inject constructor(
             val totalBytes = body.contentLength()
             var bytesDownloaded = 0L
 
-            // Create temp file for download
-            val tempFile = File(context.cacheDir, "font_download_temp.zip")
+            // Create temp file for download (unique per target to avoid conflicts)
+            val cacheDir = context.cacheDir
+            if (!cacheDir.exists()) cacheDir.mkdirs()
+            val tempFile = File(cacheDir, "font_download_${targetFolder}.zip")
 
             // Download to temp file
             body.byteStream().use { input ->
@@ -236,14 +297,20 @@ class QCFFontDownloadManager @Inject constructor(
             // Extract ZIP
             progressFlow.value = progressFlow.value.copy(progress = 0.9f)
 
+            if (!fontsDir.exists()) fontsDir.mkdirs()
             val targetDir = File(fontsDir, targetFolder)
-            extractZip(tempFile, targetDir)
+            extractZip(tempFile, targetDir, fileExtensions)
 
             // Clean up temp file
             tempFile.delete()
 
             // Verify extraction
-            if (!isValidFontFolder(targetDir)) {
+            val isValid = if (fileExtensions.contains(".svg")) {
+                isValidSvgFolder(targetDir)
+            } else {
+                isValidFontFolder(targetDir)
+            }
+            if (!isValid) {
                 progressFlow.value = FontDownloadProgress(
                     state = FontDownloadState.ERROR,
                     errorMessage = "Extraction failed or incomplete"
@@ -273,7 +340,7 @@ class QCFFontDownloadManager @Inject constructor(
      * Extract a ZIP file to target directory.
      * Handles nested folders by extracting font files directly to target directory.
      */
-    private fun extractZip(zipFile: File, targetDir: File) {
+    private fun extractZip(zipFile: File, targetDir: File, fileExtensions: List<String> = listOf(".ttf")) {
         if (targetDir.exists()) {
             targetDir.deleteRecursively()
         }
@@ -286,10 +353,10 @@ class QCFFontDownloadManager @Inject constructor(
                     // Get just the filename, ignoring any folder structure in ZIP
                     val fileName = File(entry.name).name
 
-                    // Only extract .ttf files
-                    if (fileName.endsWith(".ttf", ignoreCase = true)) {
+                    // Only extract files matching the specified extensions
+                    if (fileExtensions.any { ext -> fileName.endsWith(ext, ignoreCase = true) }) {
                         val outFile = File(targetDir, fileName)
-                        Timber.d("Extracting font: ${entry.name} -> ${outFile.absolutePath}")
+                        Timber.d("Extracting: ${entry.name} -> ${outFile.absolutePath}")
                         FileOutputStream(outFile).use { fos ->
                             zis.copyTo(fos)
                         }
@@ -303,7 +370,7 @@ class QCFFontDownloadManager @Inject constructor(
 
         // Log extracted files count
         val extractedCount = targetDir.listFiles()?.size ?: 0
-        Timber.i("Extracted $extractedCount font files to ${targetDir.absolutePath}")
+        Timber.i("Extracted $extractedCount files to ${targetDir.absolutePath}")
     }
 
     /**
@@ -329,6 +396,17 @@ class QCFFontDownloadManager @Inject constructor(
     }
 
     /**
+     * Delete SVG pages
+     */
+    suspend fun deleteSVGFonts() = withContext(Dispatchers.IO) {
+        val folder = File(fontsDir, SVG_FONTS_FOLDER)
+        if (folder.exists()) {
+            folder.deleteRecursively()
+        }
+        _svgDownloadProgress.value = FontDownloadProgress(state = FontDownloadState.NOT_DOWNLOADED)
+    }
+
+    /**
      * Get size of downloaded V2 fonts in bytes
      */
     fun getV2FontsSize(): Long {
@@ -341,6 +419,14 @@ class QCFFontDownloadManager @Inject constructor(
      */
     fun getV4FontsSize(): Long {
         val folder = File(fontsDir, V4_FONTS_FOLDER)
+        return if (folder.exists()) getFolderSize(folder) else 0
+    }
+
+    /**
+     * Get size of downloaded SVG pages in bytes
+     */
+    fun getSVGFontsSize(): Long {
+        val folder = File(fontsDir, SVG_FONTS_FOLDER)
         return if (folder.exists()) getFolderSize(folder) else 0
     }
 

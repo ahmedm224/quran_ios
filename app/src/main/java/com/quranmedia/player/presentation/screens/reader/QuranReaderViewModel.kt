@@ -119,13 +119,13 @@ class QuranReaderViewModel @Inject constructor(
      * Returns true if at least one font pack is downloaded.
      */
     fun areQCFFontsAvailable(): Boolean {
-        return fontDownloadManager.isV2Downloaded() || fontDownloadManager.isV4Downloaded()
+        return fontDownloadManager.isSVGDownloaded() || fontDownloadManager.isV4Downloaded()
     }
 
     /**
-     * Check if V2 (plain) fonts are downloaded
+     * Check if SVG Mushaf pages are downloaded
      */
-    fun isV2FontsDownloaded(): Boolean = fontDownloadManager.isV2Downloaded()
+    fun isSVGDownloaded(): Boolean = fontDownloadManager.isSVGDownloaded()
 
     /**
      * Check if V4 (tajweed) fonts are downloaded

@@ -46,7 +46,7 @@ class WhatsNewViewModel @Inject constructor(
     val uiState: StateFlow<WhatsNewUiState> = _uiState.asStateFlow()
 
     // Expose font download progress
-    val v2DownloadProgress = fontDownloadManager.v2DownloadProgress
+    val svgDownloadProgress = fontDownloadManager.svgDownloadProgress
     val v4DownloadProgress = fontDownloadManager.v4DownloadProgress
 
     init {
@@ -62,17 +62,17 @@ class WhatsNewViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(language = newLanguage)
     }
 
-    fun isV2Downloaded(): Boolean = fontDownloadManager.isV2Downloaded()
+    fun isSVGDownloaded(): Boolean = fontDownloadManager.isSVGDownloaded()
     fun isV4Downloaded(): Boolean = fontDownloadManager.isV4Downloaded()
 
-    fun downloadV2Fonts() {
+    fun downloadSVGFonts() {
         viewModelScope.launch {
-            val success = fontDownloadManager.downloadV2Fonts()
+            val success = fontDownloadManager.downloadSVGFonts()
             if (success) {
-                // Enable QCF mode with plain (V2) fonts
+                // Enable Mushaf mode with SVG rendering
                 settingsRepository.setUseQCFFont(true)
                 settingsRepository.setQCFTajweedMode(false)
-                Timber.d("V2 fonts downloaded - QCF mode enabled with plain fonts")
+                Timber.d("SVG fonts downloaded - Mushaf mode enabled")
             }
         }
     }
